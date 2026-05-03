@@ -194,6 +194,19 @@ def analyze_file(filepath: str) -> dict:
         print(Fore.GREEN + "     ✅ Угроз не обнаружено")
     full_result["scan"] = scan
 
+    # 8. Язык документа
+    print_section("ЯЗЫК ДОКУМЕНТА")
+    lang_info = detect_language(filepath)
+    lang_main = lang_info.get("Основной язык", "Не определён")
+    lang_probs = lang_info.get("Вероятности языков", [])
+    lang_note  = lang_info.get("Примечание", "")
+    print(f"     {Fore.WHITE}Основной язык : {Fore.GREEN}{lang_main}")
+    if lang_probs:
+        print(f"     {Fore.WHITE}Вероятности   : {Fore.YELLOW}{', '.join(lang_probs[:3])}")
+    if lang_note:
+        print(Fore.YELLOW + f"     ℹ️  {lang_note}")
+    full_result["language"] = lang_info
+
     return full_result
 
 def analyze_other_file(filepath: str, ext: str) -> dict:
@@ -419,6 +432,10 @@ def analyze_folder(folder_path: str):
     for filepath, ext, ftype in all_files:
         if ext == ".docx":
             result = analyze_file(filepath)
+            # Добавляем язык в метаданные для отчёта
+            lang = result.get("language", {})
+            if lang.get("Основной язык") and lang["Основной язык"] != "Не определён":
+                result["metadata"]["Язык документа"] = lang["Основной язык"]
             all_results.append(result["metadata"])
             fname = result["metadata"]["Файл"]
             anomalies_map[fname] = result["anomalies"]

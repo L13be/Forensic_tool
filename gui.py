@@ -38,8 +38,8 @@ class ForensicApp(ctk.CTk):
 
         try:
             self.iconbitmap("icon.ico")
-        except:
-            pass
+        except Exception:
+            pass  # icon.ico не найден — продолжаем без иконки
 
         self._last_report_path = None
         self._analysis_running = False
@@ -797,6 +797,7 @@ class ForensicApp(ctk.CTk):
                 "Дата создания", "Дата изменения",
                 "Время редактирования", "Номер редакции",
                 "Приложение", "Версия приложения",
+                "Язык документа",
                 "Страниц", "Слов", "MD5", "SHA256",
             ]
             for key in fields:
