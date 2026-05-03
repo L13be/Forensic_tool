@@ -9,7 +9,6 @@
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![Version](https://img.shields.io/badge/Version-2.0-blue?style=for-the-badge)
 
-*Курсовая работа | РТУ МИРЭА | Тема №26 — Компьютерная экспертиза*
 
 </div>
 
