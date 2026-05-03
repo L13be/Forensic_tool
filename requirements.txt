@@ -1,0 +1,24 @@
+# Forensic File Metadata Analyzer v2.0
+# Установка: pip install -r requirements.txt
+
+# ── Обработка документов ────────────────────────────────────────
+python-docx==1.2.0          # Чтение/анализ DOCX (метаданные, скрытый текст)
+PyMuPDF==1.27.2             # Анализ PDF (метаданные, извлечение изображений)
+python-pptx==1.0.2          # Анализ PPTX презентаций
+
+# ── Изображения и EXIF ──────────────────────────────────────────
+Pillow==12.1.1              # EXIF, GPS, серийные номера камер
+
+# ── Облачные хранилища ──────────────────────────────────────────
+google-api-python-client==2.192.0  # Google Drive API v3
+google-auth==2.49.0                # OAuth2 аутентификация Google
+google-auth-httplib2==0.3.0        # HTTP транспорт для Google Auth
+google-auth-oauthlib==1.3.0        # OAuth flow для Google
+yadisk==3.4.0                      # Яндекс.Диск API
+
+# ── Вспомогательные ─────────────────────────────────────────────
+colorama==0.4.6             # Цветной вывод в терминале (Windows совместимость)
+customtkinter==5.2.2        # Современный GUI (опционально)
+langdetect==1.0.9           # Определение языка документа
+python-dotenv==1.2.2        # Загрузка .env переменных (токены)
+requests==2.32.5            # HTTP запросы

@@ -1,0 +1,34 @@
+# Секреты и токены — НИКОГДА не коммитить
+.env
+credentials.json
+token.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Виртуальное окружение
+.venv/
+venv/
+env/
+
+# Сгенерированные артефакты
+reports/
+logs/
+reports/extracted_images/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
