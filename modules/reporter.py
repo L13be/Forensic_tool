@@ -189,6 +189,171 @@ def _build_images_detail(images: list, index: str) -> tuple:
     return images_summary, images_detail, all_traces, coords, devices
 
 
+def _build_image_card(meta: dict, anomalies: list, images: list, index: int, scan_result: dict = None) -> str:
+    """Строит карточку для автономного изображения (JPG/PNG/TIFF/BMP) с полным EXIF."""
+    fname  = meta.get("Файл", "—")
+    fpath  = meta.get("Полный путь", "")
+    fsize  = meta.get("Размер", "—")
+    md5    = meta.get("MD5", "—")
+    sha256 = str(meta.get("SHA256", "—"))
+
+    total_traces = sum(len(img.get("Следы", [])) for img in images) if images else 0
+    badge = _badges(total_traces, len(anomalies))
+
+    # ── СЕКЦИЯ: ФАЙЛ ─────────────────────────────────────
+    file_section = f"""
+        <div class="card-section">
+            <div class="section-header">📄 Файл</div>
+            {_field("Имя файла", fname)}
+            {_field("Путь", f'<span class="small">{_e(fpath)}</span>')}
+            {_field("Размер", fsize)}
+            {_field("Формат", meta.get("Формат", ""))}
+            {_field("Разрешение", meta.get("Разрешение", ""))}
+            {_field("MD5", f'<code class="hash">{md5}</code>')}
+            {_field("SHA256", f'<code class="hash">{sha256[:40]}...</code>' if len(sha256) > 40 else f'<code class="hash">{sha256}</code>')}
+        </div>"""
+
+    # ── СЕКЦИЯ: КАМЕРА ────────────────────────────────────
+    camera_section = f"""
+        <div class="card-section">
+            <div class="section-header">📷 Камера</div>
+            {_field("Устройство", meta.get("Устройство", ""), "trace")}
+            {_field("Производитель", meta.get("Производитель", ""))}
+            {_field("Модель", meta.get("Модель камеры", ""))}
+            {_field("Серийный №", meta.get("Серийный номер камеры", ""), "anomaly" if meta.get("Серийный номер камеры") else "")}
+            {_field("Объектив", meta.get("Объектив", ""))}
+        </div>"""
+
+    # ── СЕКЦИЯ: ПАРАМЕТРЫ СЪЁМКИ ─────────────────────────
+    shoot_section = f"""
+        <div class="card-section">
+            <div class="section-header">🎯 Параметры съёмки</div>
+            {_field("ISO", meta.get("ISO", ""))}
+            {_field("Диафрагма", meta.get("Диафрагма", ""))}
+            {_field("Выдержка", meta.get("Выдержка", ""))}
+            {_field("Фокусное расст.", meta.get("Фокусное расстояние", ""))}
+            {_field("Вспышка", meta.get("Вспышка", ""))}
+        </div>"""
+
+    # ── СЕКЦИЯ: ВРЕМЕННЫЕ МЕТКИ ──────────────────────────
+    time_section = f"""
+        <div class="card-section">
+            <div class="section-header">📅 Временные метки</div>
+            {_field("Дата съёмки", meta.get("Дата создания", ""), "warn" if meta.get("Дата создания") else "")}
+            {_field("Оцифровка", meta.get("Дата оцифровки", ""))}
+            {_field("Изменение файла", meta.get("Дата изменения", ""))}
+            {_field("Часовой пояс", meta.get("Часовой пояс", ""), "trace" if meta.get("Часовой пояс") else "")}
+        </div>"""
+
+    # ── СЕКЦИЯ: ПО И АВТОРСТВО ────────────────────────────
+    soft_section = f"""
+        <div class="card-section">
+            <div class="section-header">💻 ПО и авторство</div>
+            {_field("ПО обработки", meta.get("ПО обработки", ""), "warn" if meta.get("ПО обработки") else "")}
+            {_field("Artist", meta.get("Автор (Artist)", ""), "trace" if meta.get("Автор (Artist)") else "")}
+            {_field("Авторские права", meta.get("Авторские права", ""))}
+        </div>"""
+
+    # ── СЕКЦИЯ: GPS ────────────────────────────────────────
+    gps_coords = meta.get("GPS Координаты", "")
+    maps_link  = meta.get("Google Maps", "")
+    gps_link_html = (
+        f'<div style="margin-top:6px"><a href="{_e(maps_link)}" target="_blank" class="btn-link">🗺️ Google Maps</a></div>'
+        if maps_link else ""
+    )
+    if gps_coords:
+        gps_section = f"""
+        <div class="card-section">
+            <div class="section-header">📍 GPS</div>
+            {_field("Координаты", gps_coords, "anomaly")}
+            {_field("Высота", meta.get("GPS Высота", ""))}
+            {_field("Скорость", meta.get("GPS Скорость", ""), "warn" if meta.get("GPS Скорость") else "")}
+            {_field("Время GPS", meta.get("GPS Время", ""))}
+            {gps_link_html}
+        </div>"""
+    else:
+        gps_section = """
+        <div class="card-section">
+            <div class="section-header">📍 GPS</div>
+            <div class="ok" style="padding:8px;font-size:11px">✅ GPS не обнаружен</div>
+        </div>"""
+
+    # ── СЕКЦИЯ: БЕЗОПАСНОСТЬ ─────────────────────────────
+    security_section = ""
+    if scan_result:
+        risk     = scan_result.get("Риск", "—")
+        findings = scan_result.get("Находки", [])
+        red      = scan_result.get("Красных", 0)
+        yellow   = scan_result.get("Жёлтых", 0)
+        risk_cls = "anomaly" if red > 0 else "warn" if yellow > 0 else "ok"
+        findings_html = "".join(
+            f"<div class='scan-finding {'anomaly' if '🔴' in f else 'warn'}'>{_e(f)}</div>"
+            for f in findings
+        )
+        security_section = f"""
+            <div class="card-section">
+                <div class="section-header">🛡️ Безопасность</div>
+                {_field("Риск", risk, risk_cls)}
+                {f'<div style="margin-top:8px">{findings_html}</div>' if findings_html else ""}
+            </div>"""
+
+    # ── СЛЕДЫ EXIF (раскрывающийся) ──────────────────────
+    traces_detail = ""
+    if images:
+        exif_traces = images[0].get("Следы", [])
+        if exif_traces:
+            items = "".join(f"<li>{_e(t)}</li>" for t in exif_traces)
+            traces_detail = f"""
+        <div class="collapsible" id="traces-img-{index}">
+            <button class="collapse-btn" onclick="toggle('traces-img-{index}')">
+                🔵 Следы EXIF ({len(exif_traces)} шт.) ▼
+            </button>
+            <div class="collapse-body" style="display:none">
+                <ul class="img-traces-list" style="column-count:2;column-gap:20px">
+                    {items}
+                </ul>
+            </div>
+        </div>"""
+
+    # ── АНОМАЛИИ ─────────────────────────────────────────
+    if anomalies:
+        items = "".join(f"<li>{_e(a)}</li>" for a in anomalies)
+        anomaly_section = f"""
+        <div class="bottom-section anomaly-section">
+            <div class="bottom-header anomaly">⚠️ Аномалии ({len(anomalies)})</div>
+            <ul class="anomaly-list">{items}</ul>
+        </div>"""
+    else:
+        anomaly_section = """
+        <div class="bottom-section">
+            <div class="ok" style="padding:8px">✅ Аномалий не обнаружено</div>
+        </div>"""
+
+    return f"""
+    <div class="doc-card">
+        <div class="card-header">
+            <div class="card-title">
+                <span class="doc-icon">🖼️</span>
+                <span class="doc-name">{_e(fname)}</span>
+            </div>
+            <div class="card-badges">{badge}
+                {'<span class="badge badge-crit">📍 GPS</span>' if gps_coords else ""}
+            </div>
+        </div>
+        <div class="card-grid">
+            {file_section}
+            {camera_section}
+            {shoot_section}
+            {time_section}
+            {soft_section}
+            {gps_section}
+            {security_section}
+        </div>
+        {traces_detail}
+        {anomaly_section}
+    </div>"""
+
+
 def _build_local_card(meta: dict, anomalies: list, images: list, index: int, scan_result: dict = None, hidden_result: dict = None) -> str:
     """Строит карточку локального файла в том же стиле что и Google Drive"""
     fname    = meta.get("Файл", "—")
@@ -751,7 +916,10 @@ def generate_html_report(
         images = local_images_map.get(fname, [])
         scan_result = local_scan_map.get(fname)
         hidden_result = local_hidden_map.get(fname)
-        local_cards_html += _build_local_card(meta, anomalies, images, i, scan_result, hidden_result)
+        if meta.get("_тип") == "image":
+            local_cards_html += _build_image_card(meta, anomalies, images, i, scan_result)
+        else:
+            local_cards_html += _build_local_card(meta, anomalies, images, i, scan_result, hidden_result)
 
     # ── СТАТИСТИКА СЕКЦИЙ ─────────────────────────────────
     google_section_html = ""

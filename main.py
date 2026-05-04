@@ -236,26 +236,101 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
             image_bytes = f.read()
 
         exif = extract_full_exif(image_bytes, fname)
+        exif["Размер (байт)"] = len(image_bytes)
         images.append(exif)
+
+        # Маркер для роутинга карточки в reporter.py
+        metadata["_тип"] = "image"
 
         camera = exif.get("Камера", {})
         times  = exif.get("Временные метки", {})
         gps    = exif.get("GPS", {})
         soft   = exif.get("Программное обеспечение", {})
+        shoot  = exif.get("Параметры съёмки", {})
+        base   = exif.get("Основное", {})
 
+        # ── Основное ─────────────────────────────────────
+        if base.get("Разрешение"):
+            print(f"     {Fore.WHITE}📐 Разрешение  : {base['Разрешение']}")
+        if base.get("Формат"):
+            print(f"     {Fore.WHITE}📁 Формат      : {base['Формат']}")
+
+        # ── Камера ────────────────────────────────────────
         if camera.get("Устройство"):
-            print(f"     {Fore.YELLOW}📱 Устройство : {camera['Устройство']}")
-            metadata["Устройство"] = camera["Устройство"]
+            print(f"     {Fore.YELLOW}📱 Устройство  : {camera['Устройство']}")
+        if camera.get("Серийный номер камеры"):
+            print(Fore.RED + f"     🔑 Серийный №  : {camera['Серийный номер камеры']}")
+        if camera.get("Объектив"):
+            print(f"     {Fore.YELLOW}🔭 Объектив    : {camera['Объектив']}")
+
+        # ── Параметры съёмки ──────────────────────────────
+        if shoot.get("ISO"):
+            print(f"     {Fore.WHITE}📷 ISO         : {shoot['ISO']}")
+        if shoot.get("Диафрагма"):
+            print(f"     {Fore.WHITE}   Диафрагма   : {shoot['Диафрагма']}")
+        if shoot.get("Выдержка"):
+            print(f"     {Fore.WHITE}   Выдержка    : {shoot['Выдержка']}")
+        if shoot.get("Фокусное расстояние"):
+            print(f"     {Fore.WHITE}   Фокус       : {shoot['Фокусное расстояние']}")
+
+        # ── Временные метки ───────────────────────────────
         if times.get("Дата и время съёмки"):
-            print(f"     {Fore.WHITE}📅 Дата съёмки: {times['Дата и время съёмки']}")
-            metadata["Дата создания"] = times["Дата и время съёмки"]
+            print(f"     {Fore.WHITE}📅 Дата съёмки : {times['Дата и время съёмки']}")
+        if times.get("Дата оцифровки"):
+            print(f"     {Fore.WHITE}   Оцифровка   : {times['Дата оцифровки']}")
+        if times.get("Часовой пояс съёмки"):
+            print(f"     {Fore.YELLOW}🕐 Часовой пояс: {times['Часовой пояс съёмки']}")
+
+        # ── ПО и автор ────────────────────────────────────
         if soft.get("ПО обработки"):
-            print(f"     {Fore.YELLOW}🖼️  ПО         : {soft['ПО обработки']}")
+            print(f"     {Fore.YELLOW}🖼️  ПО          : {soft['ПО обработки']}")
+        if soft.get("Автор (Artist)"):
+            print(Fore.RED + f"     👤 Artist      : {soft['Автор (Artist)']}")
+
+        # ── GPS ───────────────────────────────────────────
         if gps.get("Координаты"):
-            print(Fore.RED + f"     📍 GPS        : {gps['Координаты']}")
-            print(Fore.CYAN + f"     🗺️  Maps       : {gps['Google Maps']}")
-            metadata["GPS"] = gps["Координаты"]
+            print(Fore.RED  + f"     📍 GPS         : {gps['Координаты']}")
+            print(Fore.CYAN + f"     🗺️  Maps        : {gps['Google Maps']}")
+            if gps.get("Высота над уровнем моря"):
+                print(f"     {Fore.GREEN}⛰️  Высота       : {gps['Высота над уровнем моря']}")
+            if gps.get("Скорость"):
+                print(Fore.YELLOW + f"     🚗 Скорость    : {gps['Скорость']}")
+            if gps.get("Время GPS (UTC)"):
+                print(f"     {Fore.WHITE}🕐 Время GPS    : {gps['Время GPS (UTC)']}")
             anomalies.append(f"📍 GPS обнаружен: {gps['Координаты']}")
+
+        # ── Примечание / ошибка ───────────────────────────
+        if exif.get("Примечание"):
+            print(Fore.YELLOW + f"     ℹ️  {exif['Примечание']}")
+        if exif.get("Ошибка"):
+            print(Fore.RED + f"     ❌ Ошибка EXIF : {exif['Ошибка']}")
+
+        # ── Копируем все поля EXIF в metadata для отчёта ──
+        if base.get("Разрешение"):  metadata["Разрешение"]             = base["Разрешение"]
+        if base.get("Формат"):      metadata["Формат"]                 = base["Формат"]
+        if camera.get("Устройство"):           metadata["Устройство"]              = camera["Устройство"]
+        if camera.get("Производитель"):        metadata["Производитель"]            = camera["Производитель"]
+        if camera.get("Модель камеры"):        metadata["Модель камеры"]            = camera["Модель камеры"]
+        if camera.get("Серийный номер камеры"):metadata["Серийный номер камеры"]    = camera["Серийный номер камеры"]
+        if camera.get("Объектив"):             metadata["Объектив"]                 = camera["Объектив"]
+        if shoot.get("ISO"):                   metadata["ISO"]                      = shoot["ISO"]
+        if shoot.get("Диафрагма"):             metadata["Диафрагма"]                = shoot["Диафрагма"]
+        if shoot.get("Выдержка"):              metadata["Выдержка"]                 = shoot["Выдержка"]
+        if shoot.get("Фокусное расстояние"):   metadata["Фокусное расстояние"]      = shoot["Фокусное расстояние"]
+        if shoot.get("Вспышка"):               metadata["Вспышка"]                  = shoot["Вспышка"]
+        if times.get("Дата и время съёмки"):   metadata["Дата создания"]            = times["Дата и время съёмки"]
+        if times.get("Дата оцифровки"):        metadata["Дата оцифровки"]           = times["Дата оцифровки"]
+        if times.get("Дата изменения файла"):  metadata["Дата изменения"]           = times["Дата изменения файла"]
+        if times.get("Часовой пояс съёмки"):   metadata["Часовой пояс"]             = times["Часовой пояс съёмки"]
+        if soft.get("ПО обработки"):           metadata["ПО обработки"]             = soft["ПО обработки"]
+        if soft.get("Автор (Artist)"):         metadata["Автор (Artist)"]           = soft["Автор (Artist)"]
+        if soft.get("Авторские права"):        metadata["Авторские права"]          = soft["Авторские права"]
+        if gps.get("Координаты"):
+            metadata["GPS Координаты"] = gps["Координаты"]
+            metadata["Google Maps"]    = gps["Google Maps"]
+        if gps.get("Высота над уровнем моря"): metadata["GPS Высота"]  = gps["Высота над уровнем моря"]
+        if gps.get("Скорость"):                metadata["GPS Скорость"] = gps["Скорость"]
+        if gps.get("Время GPS (UTC)"):         metadata["GPS Время"]    = gps["Время GPS (UTC)"]
 
         anomalies.extend(exif.get("Аномалии", []))
 
