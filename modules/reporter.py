@@ -299,8 +299,10 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
 
     # ── СЛЕДЫ EXIF (раскрывающийся) ──────────────────────
     traces_detail = ""
+    makernotes_detail = ""
     if images:
-        exif_traces = images[0].get("Следы", [])
+        exif_data = images[0]
+        exif_traces = exif_data.get("Следы", [])
         if exif_traces:
             items = "".join(f"<li>{_e(t)}</li>" for t in exif_traces)
             traces_detail = f"""
@@ -312,6 +314,48 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
                 <ul class="img-traces-list" style="column-count:2;column-gap:20px">
                     {items}
                 </ul>
+            </div>
+        </div>"""
+
+        # ── MakerNotes (раскрывающийся) ──────────────────
+        makernotes = exif_data.get("MakerNotes", {})
+        if makernotes:
+            mn_rows = "".join(
+                f"""<tr>
+                    <td style="padding:3px 8px;color:var(--text3);font-size:10px;
+                               white-space:nowrap;border-bottom:1px solid var(--border)">{_e(k)}</td>
+                    <td style="padding:3px 8px;color:var(--text);font-size:10px;
+                               word-break:break-all;border-bottom:1px solid var(--border)">{_e(v)}</td>
+                </tr>"""
+                for k, v in makernotes.items()
+            )
+            total_tags = exif_data.get("Основное", {}).get("Тегов EXIF (exifread)", "")
+            header_extra = f" &nbsp;·&nbsp; {_e(total_tags)} тегов всего" if total_tags else ""
+            makernotes_detail = f"""
+        <div class="collapsible" id="mn-img-{index}">
+            <button class="collapse-btn" onclick="toggle('mn-img-{index}')">
+                🔬 MakerNotes — проприетарные теги ({len(makernotes)} шт.){header_extra} ▼
+            </button>
+            <div class="collapse-body" style="display:none">
+                <div style="font-size:10px;color:var(--text3);margin-bottom:8px;padding:6px 8px;
+                            background:rgba(77,158,255,.06);border-radius:4px;border-left:2px solid var(--blue2)">
+                    MakerNotes — проприетарный блок EXIF (IFD4), который каждый производитель
+                    (Canon, Nikon, Sony, Apple…) заполняет по собственному формату.
+                    Содержит данные, недоступные через стандартный парсинг.
+                </div>
+                <table style="width:100%;border-collapse:collapse">
+                    <thead>
+                        <tr>
+                            <th style="text-align:left;padding:4px 8px;font-size:9px;
+                                       text-transform:uppercase;letter-spacing:1px;
+                                       color:var(--text3);border-bottom:1px solid var(--border2)">Тег</th>
+                            <th style="text-align:left;padding:4px 8px;font-size:9px;
+                                       text-transform:uppercase;letter-spacing:1px;
+                                       color:var(--text3);border-bottom:1px solid var(--border2)">Значение</th>
+                        </tr>
+                    </thead>
+                    <tbody>{mn_rows}</tbody>
+                </table>
             </div>
         </div>"""
 
@@ -350,6 +394,7 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
             {security_section}
         </div>
         {traces_detail}
+        {makernotes_detail}
         {anomaly_section}
     </div>"""
 

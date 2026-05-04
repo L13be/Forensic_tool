@@ -1,4 +1,4 @@
-# Forensic File Metadata Analyzer v2.0
+﻿# Forensic File Metadata Analyzer v2.0
 # Установка: pip install -r requirements.txt
 
 # ── Обработка документов ────────────────────────────────────────
@@ -8,6 +8,7 @@ python-pptx==1.0.2          # Анализ PPTX презентаций
 
 # ── Изображения и EXIF ──────────────────────────────────────────
 Pillow==12.1.1              # EXIF, GPS, серийные номера камер
+exifread==3.5.1             # MakerNotes, проприетарные теги Canon/Nikon/Sony (IFD4)
 
 # ── Облачные хранилища ──────────────────────────────────────────
 google-api-python-client==2.192.0  # Google Drive API v3
