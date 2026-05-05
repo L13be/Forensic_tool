@@ -440,6 +440,7 @@ class ForensicApp(ctk.CTk):
             ("📄", "Анализ DOCX, PDF, PPTX",      "Метаданные, статистика, XML структура"),
             ("🖼️", "EXIF изображений",              "GPS координаты, устройство, даты съёмки"),
             ("👁️", "Скрытый текст (w:vanish)",      "Обнаружение скрытых фрагментов в DOCX"),
+            ("☣️", "VBA / DDE / OLE (oletools)",    "Макросы, инъекции, шифрование Office-файлов"),
             ("🛡️", "Вирусное сканирование",          "Статический анализ без внешних антивирусов"),
             ("☁️", "Google Drive",                   "Метаданные, права доступа, EXIF"),
             ("🟡", "Яндекс.Диск",                   "Анализ публичных документов"),
@@ -620,6 +621,7 @@ class ForensicApp(ctk.CTk):
         local_images_map = {}
         local_scan_map   = {}
         local_hidden_map = {}
+        local_ole_map    = {}
         total_anomalies  = 0
 
         for idx, (filepath, ext, ftype) in enumerate(all_files):
@@ -642,6 +644,7 @@ class ForensicApp(ctk.CTk):
                     local_images_map[key] = result.get("images", [])
                     local_scan_map[key]   = result.get("scan",   {})
                     local_hidden_map[key] = result.get("hidden", {})
+                    local_ole_map[key]    = result.get("ole",    {})
                     n = len(result["anomalies"])
                 else:
                     from main import analyze_other_file
@@ -653,6 +656,7 @@ class ForensicApp(ctk.CTk):
                         local_images_map[key] = result.get("images",    [])
                         local_scan_map[key]   = result.get("scan",      {})
                         local_hidden_map[key] = result.get("hidden",    {})
+                        local_ole_map[key]    = result.get("ole",       {})
                         n = len(result.get("anomalies", []))
                     else:
                         n = 0
@@ -673,7 +677,8 @@ class ForensicApp(ctk.CTk):
             all_results, anomalies_map,
             local_images_map=local_images_map,
             local_scan_map=local_scan_map,
-            local_hidden_map=local_hidden_map
+            local_hidden_map=local_hidden_map,
+            local_ole_map=local_ole_map
         )
         export_to_csv(all_results)
 
@@ -693,8 +698,8 @@ class ForensicApp(ctk.CTk):
                 text_color=COLORS["red"] if a > 0 else COLORS["green"]
             )
         ))
-        self.after(0, lambda r=all_results, a=anomalies_map:
-            self._update_results_tab(r, a)
+        self.after(0, lambda r=all_results, a=anomalies_map, o=local_ole_map:
+            self._update_results_tab(r, a, o)
         )
 
     def _run_google(self, url: str):
@@ -780,7 +785,9 @@ class ForensicApp(ctk.CTk):
         except Exception as e:
             self.after(0, lambda err=str(e): self._log(f"❌ Ошибка Яндекс.Диска: {err}"))
 
-    def _update_results_tab(self, results: list, anomalies_map: dict):
+    def _update_results_tab(self, results: list, anomalies_map: dict,
+                            ole_map: dict | None = None):
+        ole_map = ole_map or {}
         self.results_text.configure(state="normal")
         self.results_text.delete("1.0", "end")
 
@@ -827,6 +834,58 @@ class ForensicApp(ctk.CTk):
                     self.results_text.insert(
                         "end", f"  {key:<26}: {val}\n"
                     )
+
+            # ── OLE / VBA / DDE (только для документов) ──
+            if not is_image:
+                ole = ole_map.get(fname, {})
+                if ole:
+                    self.results_text.insert("end", "\n  ☣️  VBA / DDE (oletools):\n")
+
+                    # Шифрование
+                    enc = ole.get("Шифрование", {})
+                    if enc.get("Зашифрован"):
+                        self.results_text.insert("end", "     🔐 Файл зашифрован!\n")
+
+                    # VBA макросы
+                    vba = ole.get("VBA", {})
+                    vba_found = vba.get("Макросы обнаружены", False)
+                    if vba_found:
+                        risk  = vba.get("Риск", "Низкий")
+                        mods  = vba.get("Модулей", 0)
+                        kw_list = vba.get("Ключевые слова", [])
+                        auto  = vba.get("Авто-запуск", False)
+                        risk_icon = "🔴" if risk in ("КРИТИЧЕСКИЙ", "Высокий") else "🟡"
+                        self.results_text.insert(
+                            "end",
+                            f"     {risk_icon} VBA макросы: {mods} модул.  |  "
+                            f"Риск: {risk}"
+                            + ("  |  ⚡ Авто-запуск!" if auto else "") + "\n"
+                        )
+                        # Ключевые слова — первые 5
+                        if kw_list:
+                            shown = kw_list[:5]
+                            extra = len(kw_list) - 5
+                            kw_str = ", ".join(
+                                k.get("Ключевое слово", "") for k in shown
+                            )
+                            if extra > 0:
+                                kw_str += f" (+{extra})"
+                            self.results_text.insert(
+                                "end", f"       Ключевые слова: {kw_str}\n"
+                            )
+                    else:
+                        self.results_text.insert("end", "     ✅ VBA макросы не найдены\n")
+
+                    # DDE
+                    dde = ole.get("DDE", {})
+                    dde_found = dde.get("DDE обнаружен", False)
+                    if dde_found:
+                        cnt = dde.get("Полей", 0)
+                        self.results_text.insert(
+                            "end", f"     ⚠️  DDE-поля: {cnt} обнаружено\n"
+                        )
+                    else:
+                        self.results_text.insert("end", "     ✅ DDE не обнаружен\n")
 
             if anoms:
                 self.results_text.insert(
