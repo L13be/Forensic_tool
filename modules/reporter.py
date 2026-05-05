@@ -399,7 +399,141 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
     </div>"""
 
 
-def _build_local_card(meta: dict, anomalies: list, images: list, index: int, scan_result: dict = None, hidden_result: dict = None) -> str:
+def _build_ole_section(ole_result: dict, index: int) -> tuple:
+    """
+    Строит секцию VBA/DDE/OLE для карточки документа.
+    Возвращает (inline_section_html, collapsible_code_html).
+    """
+    if not ole_result:
+        return "", ""
+
+    vba = ole_result.get("VBA", {})
+    dde = ole_result.get("DDE", {})
+    enc = ole_result.get("Шифрование", {})
+
+    vba_found   = vba.get("Макросы обнаружены", False)
+    dde_found   = dde.get("DDE обнаружен", False)
+    encrypted   = enc.get("Зашифрован", False)
+    vba_risk    = vba.get("Риск", "")
+    vba_modules = vba.get("Модулей", 0)
+    keywords    = vba.get("Ключевые слова", [])
+    auto_exec   = vba.get("Авто-запуск", [])
+
+    # ── Цвет заголовка секции ─────────────────────────────
+    if vba_found or dde_found or encrypted:
+        header_style = "color:var(--red)"
+        header_icon  = "☣️"
+    else:
+        header_style = "color:var(--green)"
+        header_icon  = "🛡️"
+
+    # ── Статус шифрования ─────────────────────────────────
+    enc_html = ""
+    if encrypted:
+        enc_html = """
+            <div class="scan-finding anomaly">
+                🔒 Файл зашифрован паролем — содержимое недоступно без пароля
+            </div>"""
+
+    # ── Статус VBA ────────────────────────────────────────
+    if vba_found:
+        risk_cls = "anomaly" if "КРИТИЧЕСКИЙ" in vba_risk else "warn"
+        kw_rows  = ""
+        for kw in keywords[:10]:
+            cat = kw["Категория"]
+            cls = "anomaly" if cat in ("Подозрительно", "Индикатор угрозы (IOC)",
+                                        "Обфускация") else "warn"
+            kw_rows += f"""
+                <div class="scan-finding {cls}">
+                    <b>[{_e(cat)}]</b> {_e(kw['Ключевое слово'])}
+                    <span class="small"> — {_e(kw['Описание'][:80])}</span>
+                </div>"""
+
+        auto_html = ""
+        if auto_exec:
+            fns = ", ".join(f"<code>{_e(fn)}</code>" for fn in auto_exec)
+            auto_html = f"""
+                <div style="margin-top:6px;padding:5px 8px;
+                            background:rgba(255,77,106,.08);border-radius:4px">
+                    ⚡ <b style="color:var(--red)">Авто-запуск:</b> {fns}
+                </div>"""
+
+        vba_html = f"""
+            {_field("VBA-макросы", f"{vba_modules} модуль(ей)", risk_cls)}
+            {_field("Риск", vba_risk, risk_cls)}
+            {auto_html}
+            <div style="margin-top:6px">{kw_rows}</div>"""
+    else:
+        vba_html = """
+            <div class="ok" style="font-size:11px;padding:4px 0">
+                ✅ VBA-макросов не обнаружено
+            </div>"""
+
+    # ── Статус DDE ────────────────────────────────────────
+    if dde_found:
+        dde_items = "".join(
+            f"<div class='scan-finding anomaly'>🔴 {_e(f[:100])}</div>"
+            for f in dde.get("Поля", [])
+        )
+        dde_html = f"""
+            {_field("DDE-поля", f"{dde.get('Полей',0)} шт.", "anomaly")}
+            <div style="margin-top:4px">{dde_items}</div>"""
+    else:
+        dde_html = """
+            <div class="ok" style="font-size:11px;padding:4px 0">
+                ✅ DDE-полей не обнаружено
+            </div>"""
+
+    inline_html = f"""
+        <div class="card-section">
+            <div class="section-header" style="{header_style}">
+                {header_icon} VBA / DDE (oletools)
+            </div>
+            {enc_html}
+            {vba_html}
+            <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border)">
+                <div class="section-header" style="margin-bottom:6px">DDE</div>
+                {dde_html}
+            </div>
+        </div>"""
+
+    # ── Раскрывающийся блок: исходный код VBA ─────────────
+    code_html = ""
+    modules   = vba.get("Код макросов", [])
+    if modules:
+        tabs = ""
+        bodies = ""
+        for j, mod in enumerate(modules):
+            active  = "active" if j == 0 else ""
+            display = "block" if j == 0 else "none"
+            code_esc = _e(mod["Код"][:2000])
+            if len(mod["Код"]) > 2000:
+                code_esc += "\n... (truncated)"
+            tabs += f"""
+                <button class="vba-tab {active}"
+                        onclick="selectVbaTab(this, 'vba-body-{index}-{j}')">
+                    {_e(mod['Модуль'])}
+                    <span class="small">({mod['Строк']} стр.)</span>
+                </button>"""
+            bodies += f"""
+                <pre id="vba-body-{index}-{j}"
+                     class="vba-code" style="display:{display}">{code_esc}</pre>"""
+
+        code_html = f"""
+        <div class="collapsible" id="vba-{index}">
+            <button class="collapse-btn" onclick="toggle('vba-{index}')">
+                🔬 Исходный код VBA ({len(modules)} модуль(ей)) ▼
+            </button>
+            <div class="collapse-body" style="display:none">
+                <div class="vba-tabs">{tabs}</div>
+                {bodies}
+            </div>
+        </div>"""
+
+    return inline_html, code_html
+
+
+def _build_local_card(meta: dict, anomalies: list, images: list, index: int, scan_result: dict = None, hidden_result: dict = None, ole_result: dict = None) -> str:
     """Строит карточку локального файла в том же стиле что и Google Drive"""
     fname    = meta.get("Файл", "—")
     fpath    = meta.get("Полный путь", "")
@@ -577,6 +711,9 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
 
 
 
+    # ── СЕКЦИЯ: VBA / DDE (oletools) ─────────────────────
+    ole_inline, ole_code = _build_ole_section(ole_result, f"loc-{index}")
+
     # ── СЕТКА ────────────────────────────────────────────
     grid = f"""
             <div class="card-grid">
@@ -586,6 +723,7 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
                 {content_section}
                 {hidden_section}
                 {security_section}
+                {ole_inline}
                 {images_summary}
             </div>"""
 
@@ -614,6 +752,7 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
             <div class="card-badges">{badge}</div>
         </div>
         {grid}
+        {ole_code}
         {images_detail}
         {anomaly_section}
     </div>"""
@@ -921,7 +1060,8 @@ def generate_html_report(
     google_results: list = None,
     local_images_map: dict = None,
     local_scan_map: dict = None,
-    local_hidden_map: dict = None
+    local_hidden_map: dict = None,
+    local_ole_map: dict = None,
 ):
     os.makedirs(REPORTS_DIR, exist_ok=True)
     timestamp   = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -938,6 +1078,8 @@ def generate_html_report(
         local_scan_map = {}
     if local_hidden_map is None:
         local_hidden_map = {}
+    if local_ole_map is None:
+        local_ole_map = {}
 
     # ── GOOGLE DRIVE КАРТОЧКИ ─────────────────────────────
     google_cards_html = ""
@@ -957,14 +1099,15 @@ def generate_html_report(
     local_cards_html = ""
     for i, meta in enumerate(results):
         fname = meta.get("Файл", "")
-        anomalies = anomalies_map.get(fname, [])
-        images = local_images_map.get(fname, [])
-        scan_result = local_scan_map.get(fname)
+        anomalies     = anomalies_map.get(fname, [])
+        images        = local_images_map.get(fname, [])
+        scan_result   = local_scan_map.get(fname)
         hidden_result = local_hidden_map.get(fname)
+        ole_result    = local_ole_map.get(fname)
         if meta.get("_тип") == "image":
             local_cards_html += _build_image_card(meta, anomalies, images, i, scan_result)
         else:
-            local_cards_html += _build_local_card(meta, anomalies, images, i, scan_result, hidden_result)
+            local_cards_html += _build_local_card(meta, anomalies, images, i, scan_result, hidden_result, ole_result)
 
     # ── СТАТИСТИКА СЕКЦИЙ ─────────────────────────────────
     google_section_html = ""
@@ -1082,6 +1225,10 @@ def generate_html_report(
         .report-footer{margin-top:32px;padding-top:16px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);text-align:center;font-family:'JetBrains Mono',monospace;letter-spacing:1px;}
         .scan-finding{font-size:10px;padding:3px 0;border-bottom:1px solid var(--border);}
         .scan-finding:last-child{border-bottom:none;}
+        .vba-tabs{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+        .vba-tab{background:var(--bg4);border:1px solid var(--border);color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 10px;border-radius:4px;cursor:pointer;transition:all .15s;}
+        .vba-tab.active,.vba-tab:hover{background:var(--blue2);color:white;border-color:var(--blue2);}
+        .vba-code{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text);white-space:pre-wrap;word-break:break-all;max-height:400px;overflow-y:auto;margin:0;}
     """
 
     html = f"""<!DOCTYPE html>
@@ -1105,6 +1252,14 @@ def generate_html_report(
     {local_section_html}
     <div class="report-footer">FORENSIC FILE METADATA ANALYZER &nbsp;·&nbsp; {report_time}</div>
     <script>
+        function selectVbaTab(btn, bodyId) {{
+            const tabs = btn.parentNode.querySelectorAll('.vba-tab');
+            tabs.forEach(t => t.classList.remove('active'));
+            btn.classList.add('active');
+            const bodies = btn.closest('.collapse-body').querySelectorAll('.vba-code');
+            bodies.forEach(b => b.style.display = 'none');
+            document.getElementById(bodyId).style.display = 'block';
+        }}
         function toggle(id) {{
             const body = document.querySelector('#' + id + ' .collapse-body');
             const btn  = document.querySelector('#' + id + ' .collapse-btn');

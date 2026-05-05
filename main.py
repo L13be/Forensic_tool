@@ -15,6 +15,7 @@ from modules.image_extractor       import extract_images, extract_full_exif
 from modules.lang_detector         import detect_language
 from modules.hidden_text           import extract_hidden_text
 from modules.hasher                import compute_hashes
+from modules.ole_analyzer          import full_ole_analysis
 from modules.cloud.google_drive    import (
     analyze_google_doc, authenticate, extract_file_id,
     is_folder, analyze_google_folder,
@@ -206,6 +207,48 @@ def analyze_file(filepath: str) -> dict:
     if lang_note:
         print(Fore.YELLOW + f"     ℹ️  {lang_note}")
     full_result["language"] = lang_info
+
+    # 9. OLE-форензик (oletools)
+    print_section("VBA / DDE / OLE АНАЛИЗ (oletools)")
+    ole = full_ole_analysis(filepath)
+    vba = ole.get("VBA", {})
+    dde = ole.get("DDE", {})
+    enc = ole.get("Шифрование", {})
+
+    if enc.get("Зашифрован"):
+        print(Fore.RED + "     🔒 Файл зашифрован паролем!")
+
+    vba_found = vba.get("Макросы обнаружены", False)
+    vba_risk  = vba.get("Риск", "—")
+    print(f"     {Fore.WHITE}VBA-макросы   : "
+          f"{Fore.RED + 'ДА ⚠️' if vba_found else Fore.GREEN + 'Нет'}")
+    if vba_found:
+        print(f"     {Fore.WHITE}Модулей       : {Fore.YELLOW}{vba.get('Модулей', 0)}")
+        print(f"     {Fore.WHITE}Риск          : {Fore.RED}{vba_risk}")
+        for kw in vba.get("Ключевые слова", [])[:8]:
+            cat   = kw['Категория']
+            color = Fore.RED if cat in ("Подозрительно", "Индикатор угрозы (IOC)",
+                                         "Обфускация") else Fore.YELLOW
+            print(f"       {color}[{cat}] {kw['Ключевое слово']} — {kw['Описание'][:60]}")
+        auto = vba.get("Авто-запуск", [])
+        if auto:
+            print(Fore.RED + f"     ⚡ Авто-запуск: {', '.join(auto)}")
+
+    dde_found = dde.get("DDE обнаружен", False)
+    dde_cnt   = dde.get("Полей", 0)
+    dde_label = f"ДА ({dde_cnt} полей)" if dde_found else "Нет"
+    dde_color = Fore.RED if dde_found else Fore.GREEN
+    print(f"     {Fore.WHITE}DDE-поля      : {dde_color}{dde_label}")
+    if dde_found:
+        for field in dde.get("Поля", [])[:3]:
+            print(Fore.RED + f"       → {field[:80]}")
+
+    if not vba_found and not dde_found and not enc.get("Зашифрован"):
+        print(Fore.GREEN + "     ✅ Подозрительного содержимого не обнаружено")
+
+    # Добавляем OLE-аномалии в общий список
+    full_result["anomalies"] += ole.get("Аномалии", [])
+    full_result["ole"] = ole
 
     return full_result
 
@@ -434,6 +477,42 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
         except Exception as e:
             print(Fore.RED + f"  ❌ Ошибка PPTX: {e}")
 
+    # ── OLE / VBA / DDE — для DOCX-подобных форматов ────
+    ole_result = {}
+    if ext in (".docx", ".xlsx", ".pptx", ".doc", ".xls", ".ppt",
+               ".xlsm", ".docm", ".pptm"):
+        print_section("VBA / DDE / OLE АНАЛИЗ (oletools)")
+        ole_result = full_ole_analysis(filepath)
+        vba = ole_result.get("VBA", {})
+        dde = ole_result.get("DDE", {})
+        enc = ole_result.get("Шифрование", {})
+
+        if enc.get("Зашифрован"):
+            print(Fore.RED + "     🔒 Файл зашифрован паролем!")
+
+        vba_found = vba.get("Макросы обнаружены", False)
+        print(f"     {Fore.WHITE}VBA-макросы   : "
+              f"{Fore.RED + 'ДА ⚠️' if vba_found else Fore.GREEN + 'Нет'}")
+        if vba_found:
+            print(f"     {Fore.WHITE}Модулей       : {Fore.YELLOW}{vba.get('Модулей', 0)}")
+            print(f"     {Fore.WHITE}Риск          : {Fore.RED}{vba.get('Риск', '—')}")
+            for kw in vba.get("Ключевые слова", [])[:5]:
+                color = Fore.RED if kw['Категория'] in (
+                    "Подозрительно", "Индикатор угрозы (IOC)", "Обфускация"
+                ) else Fore.YELLOW
+                print(f"       {color}[{kw['Категория']}] {kw['Ключевое слово']}")
+
+        dde_found = dde.get("DDE обнаружен", False)
+        dde_cnt   = dde.get("Полей", 0)
+        dde_label = f"ДА ({dde_cnt} полей)" if dde_found else "Нет"
+        dde_color = Fore.RED if dde_found else Fore.GREEN
+        print(f"     {Fore.WHITE}DDE-поля      : {dde_color}{dde_label}")
+
+        if not vba_found and not dde_found and not enc.get("Зашифрован"):
+            print(Fore.GREEN + "     ✅ Подозрительного содержимого не обнаружено")
+
+        anomalies.extend(ole_result.get("Аномалии", []))
+
     # ── АНОМАЛИИ ─────────────────────────────────────────
     # Этот блок всегда выполняется, независимо от типа файла
     print_section("АНОМАЛИИ")
@@ -463,6 +542,7 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
         "anomalies": anomalies,
         "images":    images,
         "scan":      scan,
+        "ole":       ole_result,
     }
 
 
@@ -503,6 +583,7 @@ def analyze_folder(folder_path: str):
     local_images_map = {}
     local_scan_map = {}
     local_hidden_map = {}
+    local_ole_map = {}
 
     for filepath, ext, ftype in all_files:
         if ext == ".docx":
@@ -513,26 +594,29 @@ def analyze_folder(folder_path: str):
                 result["metadata"]["Язык документа"] = lang["Основной язык"]
             all_results.append(result["metadata"])
             fname = result["metadata"]["Файл"]
-            anomalies_map[fname] = result["anomalies"]
+            anomalies_map[fname]    = result["anomalies"]
             local_images_map[fname] = result.get("images", [])
-            local_scan_map[fname] = result.get("scan", {})
+            local_scan_map[fname]   = result.get("scan", {})
             local_hidden_map[fname] = result.get("hidden", {})
+            local_ole_map[fname]    = result.get("ole", {})
         else:
             result = analyze_other_file(filepath, ext)
             if result:
                 all_results.append(result["metadata"])
                 fname = result["metadata"]["Файл"]
-                anomalies_map[fname] = result.get("anomalies", [])
+                anomalies_map[fname]    = result.get("anomalies", [])
                 local_images_map[fname] = result.get("images", [])
-                local_scan_map[fname] = result.get("scan", {})
+                local_scan_map[fname]   = result.get("scan", {})
                 local_hidden_map[fname] = result.get("hidden", {})
+                local_ole_map[fname]    = result.get("ole", {})
 
     print(Fore.CYAN + f"\n{'='*60}")
     print(Fore.CYAN + "  📊 ГЕНЕРАЦИЯ ОТЧЁТОВ")
     generate_html_report(all_results, anomalies_map,
                          local_images_map=local_images_map,
                          local_scan_map=local_scan_map,
-                         local_hidden_map=local_hidden_map)
+                         local_hidden_map=local_hidden_map,
+                         local_ole_map=local_ole_map)
     export_to_csv(all_results)
     log_action(f"Анализ завершён. Файлов обработано: {len(all_files)}")
     print(Fore.GREEN + f"\n  ✅ Готово! Отчёты сохранены в папке /reports")
