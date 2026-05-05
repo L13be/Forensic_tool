@@ -270,27 +270,30 @@ def detect_dde(filepath: str) -> dict:
     ]
 
     try:
-        fields = _dde_process(filepath, field_filter_mode=None)
-        if not fields:
+        raw = _dde_process(filepath, field_filter_mode=None)
+        if not raw:
             return result
 
-        real_dde = []
-        for field in fields:
-            text = str(field).strip()
+        # msodde возвращает символы по одному — склеиваем в строку,
+        # затем разбиваем по переносам строк, чтобы получить целые поля
+        joined = "".join(str(c) for c in raw)
+        candidates = [ln.strip() for ln in joined.splitlines() if ln.strip()]
 
-            # Пропускаем слишком короткие (одиночные символы)
-            if len(text) <= 2:
+        real_dde = []
+        for text in candidates:
+            # Пропускаем слишком короткие фрагменты
+            if len(text) <= 3:
                 continue
 
             text_lower = text.lower()
 
-            # Пропускаем стандартные Word-поля
+            # Пропускаем стандартные Word-поля (PAGE, MERGEFORMAT, DATE…)
             if text_lower in _SAFE_FIELDS:
                 continue
             if any(text_lower.startswith(sf) for sf in _SAFE_FIELDS):
                 continue
 
-            # Считаем реальным DDE только если есть признак атаки
+            # Считаем реальным DDE только если присутствует паттерн атаки
             if any(pat in text_lower for pat in _DDE_ATTACK_PATTERNS):
                 real_dde.append(text)
 

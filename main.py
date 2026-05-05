@@ -82,6 +82,35 @@ def analyze_file(filepath: str) -> dict:
 
     full_result = {"filepath": filepath}
 
+    # 0. Предварительная проверка: зашифрованный файл?
+    try:
+        import msoffcrypto
+        with open(filepath, "rb") as _f:
+            if msoffcrypto.OfficeFile(_f).is_encrypted():
+                print_section("ШИФРОВАНИЕ")
+                print(Fore.RED + "     🔒 Файл зашифрован — анализ метаданных невозможен без пароля")
+                from modules.hasher import compute_hashes as _ch
+                _hh = _ch(filepath)
+                enc_meta = {
+                    "Файл":    fname,
+                    "Статус":  "Зашифрован",
+                    "MD5":     _hh.get("MD5", "—"),
+                    "SHA256":  _hh.get("SHA256", "—"),
+                }
+                return {
+                    "filepath":  filepath,
+                    "metadata":  enc_meta,
+                    "anomalies": ["🔒 Файл зашифрован паролем — содержимое недоступно"],
+                    "images":    [],
+                    "scan":      {},
+                    "hidden":    {},
+                    "ole":       {"Шифрование": {"Зашифрован": True},
+                                  "VBA": {}, "DDE": {}, "OLE": {},
+                                  "Аномалии": ["🔒 Файл зашифрован"]},
+                }
+    except Exception:
+        pass  # msoffcrypto недоступен или ошибка — продолжаем обычный анализ
+
     # 1. Метаданные
     print_section("МЕТАДАННЫЕ")
     metadata = extract_metadata(filepath)
