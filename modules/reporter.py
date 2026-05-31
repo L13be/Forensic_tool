@@ -338,7 +338,7 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
             </button>
             <div class="collapse-body" style="display:none">
                 <div style="font-size:10px;color:var(--text3);margin-bottom:8px;padding:6px 8px;
-                            background:rgba(77,158,255,.06);border-radius:4px;border-left:2px solid var(--blue2)">
+                            background:rgba(184,120,56,.08);border-radius:4px;border-left:2px solid var(--blue2)">
                     MakerNotes — проприетарный блок EXIF (IFD4), который каждый производитель
                     (Canon, Nikon, Sony, Apple…) заполняет по собственному формату.
                     Содержит данные, недоступные через стандартный парсинг.
@@ -454,7 +454,7 @@ def _build_ole_section(ole_result: dict, index: int) -> tuple:
             fns = ", ".join(f"<code>{_e(fn)}</code>" for fn in auto_exec)
             auto_html = f"""
                 <div style="margin-top:6px;padding:5px 8px;
-                            background:rgba(255,77,106,.08);border-radius:4px">
+                            background:rgba(200,104,74,.10);border-radius:4px">
                     ⚡ <b style="color:var(--red)">Авто-запуск:</b> {fns}
                 </div>"""
 
@@ -655,8 +655,8 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
 
             fragments_html += f"""
                     <div style="margin-bottom:8px;padding:6px 8px;
-                                background:rgba(255,77,106,.06);
-                                border:1px solid rgba(255,77,106,.2);
+                                background:rgba(200,104,74,.08);
+                                border:1px solid rgba(200,104,74,.25);
                                 border-radius:4px">
                         <div style="font-size:9px;color:var(--text3);margin-bottom:3px">
                             Параграф №{_e(str(f.get('Параграф №', '—')))} &nbsp;·&nbsp;
@@ -868,8 +868,8 @@ def _build_doc_card(g: dict, index: int) -> str:
                 text_preview += "..."
             fragments_html += f"""
                     <div style="margin-bottom:8px;padding:6px 8px;
-                                background:rgba(255,77,106,.06);
-                                border:1px solid rgba(255,77,106,.2);
+                                background:rgba(200,104,74,.08);
+                                border:1px solid rgba(200,104,74,.25);
                                 border-radius:4px">
                         <div style="font-size:9px;color:var(--text3);margin-bottom:3px">
                             Параграф №{f.get('Параграф №', '—')} &nbsp;·&nbsp;
@@ -963,21 +963,21 @@ def _build_doc_card(g: dict, index: int) -> str:
             if gps.get("Координаты"):
                 gps_html = f"""
                     <div class="img-gps">
-                        📍 {gps['Координаты']}<br>
-                        <a href="{gps['Google Maps']}" target="_blank" class="btn-link">Google Maps</a>
-                        {f'&nbsp;| Высота: {gps.get("Высота над уровнем моря","")}' if gps.get("Высота над уровнем моря") else ""}
+                        📍 {_e(gps['Координаты'])}<br>
+                        <a href="{_e(gps['Google Maps'])}" target="_blank" class="btn-link">Google Maps</a>
+                        {f'&nbsp;| Высота: {_e(gps.get("Высота над уровнем моря",""))}' if gps.get("Высота над уровнем моря") else ""}
                     </div>"""
 
             traces_html = ""
             if следы:
-                items = "".join(f"<li>{t}</li>" for t in следы)
+                items = "".join(f"<li>{_e(t)}</li>" for t in следы)
                 traces_html = f"""
                     <div class="img-block-title trace">🔵 Следы файла</div>
                     <ul class="img-traces-list">{items}</ul>"""
 
             anom_html = ""
             if аном:
-                items = "".join(f"<li>{a}</li>" for a in аном)
+                items = "".join(f"<li>{_e(a)}</li>" for a in аном)
                 anom_html = f"""
                     <div class="img-block-title anomaly">⚠️ Аномалии</div>
                     <ul class="img-anomalies">{items}</ul>"""
@@ -985,8 +985,8 @@ def _build_doc_card(g: dict, index: int) -> str:
             img_cards += f"""
                 <div class="img-mini-card">
                     <div class="img-mini-name">
-                        🖼️ {img.get('Файл','—')}
-                        <span class="small">{img.get('Источник','—')}</span>
+                        🖼️ {_e(img.get('Файл','—'))}
+                        <span class="small">{_e(img.get('Источник','—'))}</span>
                     </div>
                     <div class="img-mini-grid">
                         <div>{_field("Разрешение", base.get("Разрешение",""))}</div>
@@ -1144,9 +1144,9 @@ def generate_html_report(
 
     css = """
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
-        :root{--bg:#0a0e17;--bg2:#0f1520;--bg3:#161d2e;--bg4:#1c2539;--border:#1e2d45;--border2:#243450;--blue:#4d9eff;--blue2:#2d7dd2;--green:#3ddc84;--red:#ff4d6a;--yellow:#ffc44d;--text:#c8d6f0;--text2:#7a8fb5;--text3:#3d5280;}
+        :root{--bg:#111A1B;--bg2:#192421;--bg3:#1E2E25;--bg4:#284139;--border:#3D5A49;--border2:#4E6E5A;--blue:#F8D794;--blue2:#B87838;--green:#7AA882;--red:#C8684A;--yellow:#F8D794;--text:#D5CCAA;--text2:#8E9E84;--text3:#556A5A;}
         *{box-sizing:border-box;margin:0;padding:0;}
-        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);padding:24px 32px;background-image:radial-gradient(ellipse at 20% 0%,rgba(45,125,210,.08) 0%,transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(61,220,132,.04) 0%,transparent 60%);}
+        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);padding:24px 32px;background-image:radial-gradient(ellipse at 20% 0%,rgba(184,120,56,.07) 0%,transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(40,65,57,.12) 0%,transparent 60%);}
         .report-header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;margin-bottom:28px;border-bottom:1px solid var(--border2);}
         .report-title{font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:var(--blue);letter-spacing:1px;}
         .report-title span{color:var(--text2);font-weight:400;}
@@ -1164,10 +1164,10 @@ def generate_html_report(
         .doc-name{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:600;color:var(--text);}
         .card-badges{display:flex;gap:6px;flex-wrap:wrap;}
         .badge{font-size:10px;font-weight:600;padding:3px 8px;border-radius:20px;font-family:'JetBrains Mono',monospace;letter-spacing:.5px;}
-        .badge-ok{background:rgba(61,220,132,.12);color:var(--green);border:1px solid rgba(61,220,132,.25);}
-        .badge-warn{background:rgba(255,196,77,.12);color:var(--yellow);border:1px solid rgba(255,196,77,.25);}
-        .badge-crit{background:rgba(255,77,106,.12);color:var(--red);border:1px solid rgba(255,77,106,.25);}
-        .badge-trace{background:rgba(77,158,255,.12);color:var(--blue);border:1px solid rgba(77,158,255,.25);}
+        .badge-ok{background:rgba(122,168,130,.15);color:var(--green);border:1px solid rgba(122,168,130,.30);}
+        .badge-warn{background:rgba(248,215,148,.15);color:var(--yellow);border:1px solid rgba(248,215,148,.30);}
+        .badge-crit{background:rgba(200,104,74,.15);color:var(--red);border:1px solid rgba(200,104,74,.30);}
+        .badge-trace{background:rgba(248,215,148,.12);color:var(--blue);border:1px solid rgba(248,215,148,.25);}
         .card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));border-bottom:1px solid var(--border);}
         .card-section{padding:14px 16px;border-right:1px solid var(--border);}
         .card-section:last-child{border-right:none;}
@@ -1185,13 +1185,13 @@ def generate_html_report(
         .img-stat{background:var(--bg4);border:1px solid var(--border);border-radius:6px;padding:8px 6px;text-align:center;}
         .img-stat b{display:block;font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--blue);line-height:1;}
         .img-stat span{font-size:9px;color:var(--text3);text-transform:uppercase;}
-        .devices-list{font-size:11px;color:var(--yellow);padding:5px 8px;background:rgba(255,196,77,.06);border-radius:4px;margin-bottom:8px;}
-        .gps-alert{background:rgba(255,77,106,.08);border:1px solid rgba(255,77,106,.3);border-radius:6px;padding:10px 12px;margin:8px 0;}
+        .devices-list{font-size:11px;color:var(--yellow);padding:5px 8px;background:rgba(248,215,148,.08);border-radius:4px;margin-bottom:8px;}
+        .gps-alert{background:rgba(200,104,74,.10);border:1px solid rgba(200,104,74,.30);border-radius:6px;padding:10px 12px;margin:8px 0;}
         .gps-title{font-size:11px;font-weight:600;color:var(--red);margin-bottom:4px;}
         .gps-coords{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text);margin-bottom:6px;}
         .bottom-section{padding:12px 18px;border-top:1px solid var(--border);}
         .bottom-header{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;}
-        .anomaly-section{background:rgba(255,77,106,.04);}
+        .anomaly-section{background:rgba(200,104,74,.05);}
         .anomaly-list{list-style:none;padding:0;}
         .anomaly-list li{font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);color:var(--text);}
         .anomaly-list li:last-child{border-bottom:none;}
@@ -1203,7 +1203,7 @@ def generate_html_report(
         .img-mini-card{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:8px;}
         .img-mini-name{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--blue);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
         .img-mini-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:4px;margin-bottom:6px;}
-        .img-gps{margin-top:8px;padding:6px 8px;background:rgba(255,77,106,.08);border-radius:4px;font-size:11px;color:var(--red);}
+        .img-gps{margin-top:8px;padding:6px 8px;background:rgba(200,104,74,.10);border-radius:4px;font-size:11px;color:var(--red);}
         .img-block-title{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin:8px 0 4px;}
         .img-traces-list{list-style:none;padding:0;}
         .img-traces-list li{font-size:10px;color:var(--text2);padding:2px 0;}
@@ -1221,7 +1221,7 @@ def generate_html_report(
         .hash{font-size:9px;}
         .btn-link{color:var(--blue);text-decoration:none;padding:2px 8px;border:1px solid var(--border2);border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;white-space:nowrap;transition:all .15s;}
         .btn-link:hover{background:var(--blue2);color:white;border-color:var(--blue2);}
-        .error-card{border-color:rgba(255,77,106,.3);}
+        .error-card{border-color:rgba(200,104,74,.35);}
         .report-footer{margin-top:32px;padding-top:16px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);text-align:center;font-family:'JetBrains Mono',monospace;letter-spacing:1px;}
         .scan-finding{font-size:10px;padding:3px 0;border-bottom:1px solid var(--border);}
         .scan-finding:last-child{border-bottom:none;}

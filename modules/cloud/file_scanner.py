@@ -136,8 +136,10 @@ def scan_cloud_file(service, file_id, mime_type, filename):
             with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
                 tmp.write(file_bytes)
                 tmp_path = tmp.name
-            hidden = extract_hidden_text(tmp_path)
-            os.unlink(tmp_path)
+            try:
+                hidden = extract_hidden_text(tmp_path)
+            finally:
+                os.unlink(tmp_path)
             result["Скрытый текст"] = hidden
             if hidden.get("Скрытых фрагментов", 0) > 0:
                 print(f"  👁️  Скрытых фрагментов: {hidden['Скрытых фрагментов']}")

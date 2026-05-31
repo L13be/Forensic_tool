@@ -258,8 +258,10 @@ def scan_yandex_file(client, public_url: str, mime_type: str, filename: str) -> 
             with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
                 tmp.write(file_bytes)
                 tmp_path = tmp.name
-            hidden = extract_hidden_text(tmp_path)
-            os.unlink(tmp_path)
+            try:
+                hidden = extract_hidden_text(tmp_path)
+            finally:
+                os.unlink(tmp_path)
             result["Скрытый текст"] = hidden
             if hidden.get("Скрытых фрагментов", 0) > 0:
                 print(f"  👁️  Скрытых фрагментов: {hidden['Скрытых фрагментов']}")
@@ -279,8 +281,10 @@ def scan_yandex_file(client, public_url: str, mime_type: str, filename: str) -> 
             with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
                 tmp.write(file_bytes)
                 tmp_path = tmp.name
-            scan = scan_file(tmp_path)
-            os.unlink(tmp_path)
+            try:
+                scan = scan_file(tmp_path)
+            finally:
+                os.unlink(tmp_path)
             result["Вирусное сканирование"] = scan
             if scan.get("Находки"):
                 for f in scan["Находки"]:

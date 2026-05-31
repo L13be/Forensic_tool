@@ -8,22 +8,23 @@ from tkinter import filedialog
 
 # ── Настройка темы ────────────────────────────────────────
 ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
+ctk.set_default_color_theme("dark-blue")
 
+# Палитра: Noir de Vigne · Emerald Green · Wasabi · Creased Khaki · Egyptian Earth
 COLORS = {
-    "bg":      "#0a0e17",
-    "bg2":     "#0f1520",
-    "bg3":     "#161d2e",
-    "bg4":     "#1c2539",
-    "border":  "#1e2d45",
-    "blue":    "#4d9eff",
-    "blue2":   "#2d7dd2",
-    "green":   "#3ddc84",
-    "red":     "#ff4d6a",
-    "yellow":  "#ffc44d",
-    "text":    "#c8d6f0",
-    "text2":   "#7a8fb5",
-    "text3":   "#3d5280",
+    "bg":      "#111A1B",  # Noir de Vigne
+    "bg2":     "#192421",  # тёмно-зелёный
+    "bg3":     "#1E2E25",  # Emerald тёмный
+    "bg4":     "#284139",  # Emerald Green
+    "border":  "#3D5A49",  # средний зелёный
+    "blue":    "#F8D794",  # Creased Khaki (основной акцент)
+    "blue2":   "#B87838",  # Egyptian Earth (кнопки)
+    "green":   "#7AA882",  # sage green (успех)
+    "red":     "#C8684A",  # терракота (ошибки/аномалии)
+    "yellow":  "#F8D794",  # Creased Khaki (предупреждения)
+    "text":    "#D5CCAA",  # тёплый пергамент
+    "text2":   "#8E9E84",  # Wasabi (вторичный текст)
+    "text3":   "#556A5A",  # тёмный Wasabi (подписи)
 }
 
 
