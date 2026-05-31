@@ -1,3 +1,10 @@
+
+<br>
+
+![Preview](assets/preview.jpg)
+
+</div>
+
 <div align="center">
 
 # 🔍 Forensic File Metadata Analyzer
@@ -8,12 +15,6 @@
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 ![Version](https://img.shields.io/badge/Version-2.0-blue?style=for-the-badge)
-
-<br>
-
-![Preview](assets/preview.jpg)
-
-</div>
 
 ---
 
