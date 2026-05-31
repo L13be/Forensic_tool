@@ -7,11 +7,6 @@ REPORTS_DIR = "reports"
 
 
 def export_to_csv(results: list):
-    """
-    Экспортирует результаты в CSV.
-    Автоматически собирает все поля из всех файлов —
-    работает для DOCX, PDF, PPTX, изображений и т.д.
-    """
     if not results:
         log_action("CSV экспорт: нет данных для экспорта")
         return
@@ -21,7 +16,6 @@ def export_to_csv(results: list):
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     filename  = os.path.join(REPORTS_DIR, f"forensic_export_{timestamp}.csv")
 
-    # Собираем все возможные поля из всех записей динамически
     all_fields = []
     for result in results:
         for key in result.keys():
@@ -32,8 +26,8 @@ def export_to_csv(results: list):
         writer = csv.DictWriter(
             f,
             fieldnames=all_fields,
-            extrasaction="ignore",   # игнорируем лишние поля
-            restval="—"              # пустые поля заполняем "—"
+            extrasaction="ignore",
+            restval="—"
         )
         writer.writeheader()
         for result in results:

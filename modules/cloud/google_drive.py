@@ -13,11 +13,6 @@ TOKEN_FILE       = os.environ.get("GDRIVE_TOKEN",       "token.json")
 
 
 def authenticate() -> object:
-    """
-    Авторизация в Google Drive через OAuth2.
-    При первом запуске откроется браузер для входа в аккаунт.
-    После входа токен сохраняется в token.json.
-    """
     creds = None
 
     if os.path.exists(TOKEN_FILE):
@@ -40,18 +35,10 @@ def authenticate() -> object:
 
 
 def extract_file_id(url: str) -> str:
-    """
-    Извлекает ID документа или папки из ссылки Google Drive.
-    Поддерживает форматы:
-    - docs.google.com/document/d/ID/edit
-    - drive.google.com/file/d/ID/view
-    - drive.google.com/drive/folders/ID
-    - drive.google.com/open?id=ID
-    """
     patterns = [
-        r"/folders/([a-zA-Z0-9_-]{25,})",  # ← папки
-        r"/d/([a-zA-Z0-9_-]{25,})",         # ← файлы
-        r"id=([a-zA-Z0-9_-]{25,})",         # ← open?id=
+        r"/folders/([a-zA-Z0-9_-]{25,})",
+        r"/d/([a-zA-Z0-9_-]{25,})",
+        r"id=([a-zA-Z0-9_-]{25,})",
     ]
     for pattern in patterns:
         match = re.search(pattern, url)
@@ -61,10 +48,6 @@ def extract_file_id(url: str) -> str:
 
 
 def parse_image_metadata(image_meta: dict) -> dict:
-    """
-    Разбирает imageMediaMetadata из Google Drive API.
-    Содержит GPS, модель камеры, время съёмки, параметры съёмки.
-    """
     if not image_meta:
         return {}
 
@@ -107,10 +90,6 @@ def parse_image_metadata(image_meta: dict) -> dict:
 
 
 def analyze_sharing(file: dict) -> dict:
-    """
-    Анализирует тип публичного доступа к файлу.
-    Определяет насколько широко был доступен документ.
-    """
     result = {}
 
     shared       = file.get("shared", False)
@@ -155,10 +134,6 @@ def analyze_sharing(file: dict) -> dict:
 
 
 def get_file_metadata(service, file_id: str) -> dict:
-    """
-    Получает полные метаданные файла через Google Drive API.
-    Включает базовые поля, GPS из фото, анализ типа доступа.
-    """
     fields = (
         "id, name, mimeType, size, "
         "createdTime, modifiedTime, "
@@ -214,7 +189,6 @@ def get_file_metadata(service, file_id: str) -> dict:
         )
 
     metadata = {
-        # ── ИДЕНТИФИКАЦИЯ ─────────────────────────────────
         "ID документа":         file.get("id",               "—"),
         "Название":             file.get("name",             "—"),
         "Тип файла (MIME)":     file.get("mimeType",         "—"),
@@ -224,45 +198,36 @@ def get_file_metadata(service, file_id: str) -> dict:
         "ID последней ревизии": file.get("headRevisionId",   "—"),
         "Хранилище":            spaces_str,
 
-        # ── АВТОРСТВО ─────────────────────────────────────
         "Владелец":             owner_name,
         "Email владельца":      owner_email,
         "Последний редактор":   modifier_name,
         "Email редактора":      modifier_email,
 
-        # ── OSINT ─────────────────────────────────────────
         "Поделился (имя)":      sharer_name,
         "Поделился (email)":    sharer_email,
 
-        # ── ВРЕМЕННЫ́Е МЕТКИ ──────────────────────────────
         "Дата создания":        file.get("createdTime",  "—"),
         "Дата изменения":       file.get("modifiedTime", "—"),
 
-        # ── ДОСТУП ────────────────────────────────────────
         "Общий доступ":         "Да" if file.get("shared")  else "Нет",
         "В корзине":            "Да" if file.get("trashed") else "Нет",
         "Избранное":            "Да" if file.get("starred") else "Нет",
 
-        # ── ЭКСПОРТ ───────────────────────────────────────
         "Доступные форматы экспорта": (
             ", ".join(export_formats) if export_formats
             else "Нет (не Google Docs формат)"
         ),
 
-        # ── ВИДЕО ─────────────────────────────────────────
         "Видео параметры":      video_info or "Не видеофайл",
 
-        # ── ССЫЛКИ ────────────────────────────────────────
         "Ссылка на документ":   file.get("webViewLink", "—"),
         "Описание":             file.get("description", "Нет"),
     }
 
-    # Анализ типа публичного доступа
     sharing_analysis = analyze_sharing(file)
     for k, v in sharing_analysis.items():
         metadata[f"[Доступ] {k}"] = v
 
-    # GPS и фото метаданные (если это фото напрямую в Drive)
     image_meta = file.get("imageMediaMetadata", {})
     if image_meta:
         photo_data = parse_image_metadata(image_meta)
@@ -280,9 +245,6 @@ def get_file_metadata(service, file_id: str) -> dict:
 
 
 def get_permissions(service, file_id: str) -> list:
-    """
-    Получает список всех пользователей у которых есть доступ к документу.
-    """
     permissions = []
     try:
         result = service.permissions().list(
@@ -312,7 +274,6 @@ def get_permissions(service, file_id: str) -> list:
 FOLDER_MIME = "application/vnd.google-apps.folder"
 
 def is_folder(service, file_id: str) -> bool:
-    """Проверяет является ли ссылка папкой Google Drive"""
     try:
         file = service.files().get(
             fileId=file_id,
@@ -324,10 +285,6 @@ def is_folder(service, file_id: str) -> bool:
 
 
 def list_folder_files(service, folder_id: str) -> list:
-    """
-    Получает список всех файлов в папке Google Drive.
-    Поддерживаемые типы — DOCX, PDF, PPTX, изображения.
-    """
     from modules.cloud.file_scanner import DOWNLOADABLE_MIME, EXPORT_MIME
     supported = list(DOWNLOADABLE_MIME.keys()) + list(EXPORT_MIME.keys())
 
@@ -373,10 +330,6 @@ def list_folder_files(service, folder_id: str) -> list:
 
 
 def analyze_google_folder(url: str) -> list:
-    """
-    Анализирует все файлы в папке Google Drive.
-    Возвращает список результатов для каждого файла.
-    """
     print("\n  🔐 Авторизация в Google Drive...")
     service = authenticate()
 
@@ -407,10 +360,6 @@ def analyze_google_folder(url: str) -> list:
 
 
 def analyze_google_doc(url: str) -> dict:
-    """
-    Главная функция модуля.
-    Принимает ссылку на Google Doc → возвращает полный forensic-анализ.
-    """
     try:
         print("\n  🔐 Авторизация в Google Drive...")
         service = authenticate()
@@ -430,7 +379,6 @@ def analyze_google_doc(url: str) -> dict:
         permissions = get_permissions(service, file_id)
         metadata["Права доступа"] = permissions
 
-        # Сканирование вложенных изображений
         mime_type = metadata.get("Тип файла (MIME)", "")
         filename  = metadata.get("Название", "unknown")
 

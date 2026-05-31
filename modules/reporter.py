@@ -7,7 +7,6 @@ REPORTS_DIR = "reports"
 
 
 def _e(value: str) -> str:
-    """Экранирует строку для безопасной вставки в HTML-атрибуты и текст."""
     return _html.escape(str(value), quote=True)
 
 
@@ -28,7 +27,6 @@ def _field(label: str, value: str, cls: str = "") -> str:
     if not value or value in ("—", "Нет", "Не указан", "Не видеофайл",
                                "Нет (не Google Docs формат)"):
         return ""
-    # label — статическая строка из кода, value — данные из документа
     safe_value = _e(value) if not value.startswith("<") else value
     return f"""
         <div class="field">
@@ -38,10 +36,6 @@ def _field(label: str, value: str, cls: str = "") -> str:
 
 
 def _build_images_detail(images: list, index: str) -> tuple:
-    """
-    Строит раскрывающийся блок деталей изображений.
-    Возвращает (images_summary_html, images_detail_html, all_traces, coords, devices)
-    """
     all_traces = []
     coords     = []
     devices    = []
@@ -106,7 +100,6 @@ def _build_images_detail(images: list, index: str) -> tuple:
         {gps_blocks}
     </div>"""
 
-    # Детальные карточки изображений
     img_cards = ""
     for img in images:
         if "Ошибка" in img or "Примечание" in img:
@@ -190,7 +183,6 @@ def _build_images_detail(images: list, index: str) -> tuple:
 
 
 def _build_image_card(meta: dict, anomalies: list, images: list, index: int, scan_result: dict = None) -> str:
-    """Строит карточку для автономного изображения (JPG/PNG/TIFF/BMP) с полным EXIF."""
     fname  = meta.get("Файл", "—")
     fpath  = meta.get("Полный путь", "")
     fsize  = meta.get("Размер", "—")
@@ -200,7 +192,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
     total_traces = sum(len(img.get("Следы", [])) for img in images) if images else 0
     badge = _badges(total_traces, len(anomalies))
 
-    # ── СЕКЦИЯ: ФАЙЛ ─────────────────────────────────────
     file_section = f"""
         <div class="card-section">
             <div class="section-header">📄 Файл</div>
@@ -213,7 +204,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
             {_field("SHA256", f'<code class="hash">{sha256[:40]}...</code>' if len(sha256) > 40 else f'<code class="hash">{sha256}</code>')}
         </div>"""
 
-    # ── СЕКЦИЯ: КАМЕРА ────────────────────────────────────
     camera_section = f"""
         <div class="card-section">
             <div class="section-header">📷 Камера</div>
@@ -224,7 +214,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
             {_field("Объектив", meta.get("Объектив", ""))}
         </div>"""
 
-    # ── СЕКЦИЯ: ПАРАМЕТРЫ СЪЁМКИ ─────────────────────────
     shoot_section = f"""
         <div class="card-section">
             <div class="section-header">🎯 Параметры съёмки</div>
@@ -235,7 +224,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
             {_field("Вспышка", meta.get("Вспышка", ""))}
         </div>"""
 
-    # ── СЕКЦИЯ: ВРЕМЕННЫЕ МЕТКИ ──────────────────────────
     time_section = f"""
         <div class="card-section">
             <div class="section-header">📅 Временные метки</div>
@@ -245,7 +233,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
             {_field("Часовой пояс", meta.get("Часовой пояс", ""), "trace" if meta.get("Часовой пояс") else "")}
         </div>"""
 
-    # ── СЕКЦИЯ: ПО И АВТОРСТВО ────────────────────────────
     soft_section = f"""
         <div class="card-section">
             <div class="section-header">💻 ПО и авторство</div>
@@ -254,7 +241,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
             {_field("Авторские права", meta.get("Авторские права", ""))}
         </div>"""
 
-    # ── СЕКЦИЯ: GPS ────────────────────────────────────────
     gps_coords = meta.get("GPS Координаты", "")
     maps_link  = meta.get("Google Maps", "")
     gps_link_html = (
@@ -278,7 +264,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
             <div class="ok" style="padding:8px;font-size:11px">✅ GPS не обнаружен</div>
         </div>"""
 
-    # ── СЕКЦИЯ: БЕЗОПАСНОСТЬ ─────────────────────────────
     security_section = ""
     if scan_result:
         risk     = scan_result.get("Риск", "—")
@@ -297,7 +282,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
                 {f'<div style="margin-top:8px">{findings_html}</div>' if findings_html else ""}
             </div>"""
 
-    # ── СЛЕДЫ EXIF (раскрывающийся) ──────────────────────
     traces_detail = ""
     makernotes_detail = ""
     if images:
@@ -317,7 +301,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
             </div>
         </div>"""
 
-        # ── MakerNotes (раскрывающийся) ──────────────────
         makernotes = exif_data.get("MakerNotes", {})
         if makernotes:
             mn_rows = "".join(
@@ -359,7 +342,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
             </div>
         </div>"""
 
-    # ── АНОМАЛИИ ─────────────────────────────────────────
     if anomalies:
         items = "".join(f"<li>{_e(a)}</li>" for a in anomalies)
         anomaly_section = f"""
@@ -400,10 +382,6 @@ def _build_image_card(meta: dict, anomalies: list, images: list, index: int, sca
 
 
 def _build_ole_section(ole_result: dict, index: int) -> tuple:
-    """
-    Строит секцию VBA/DDE/OLE для карточки документа.
-    Возвращает (inline_section_html, collapsible_code_html).
-    """
     if not ole_result:
         return "", ""
 
@@ -419,7 +397,6 @@ def _build_ole_section(ole_result: dict, index: int) -> tuple:
     keywords    = vba.get("Ключевые слова", [])
     auto_exec   = vba.get("Авто-запуск", [])
 
-    # ── Цвет заголовка секции ─────────────────────────────
     if vba_found or dde_found or encrypted:
         header_style = "color:var(--red)"
         header_icon  = "☣️"
@@ -427,7 +404,6 @@ def _build_ole_section(ole_result: dict, index: int) -> tuple:
         header_style = "color:var(--green)"
         header_icon  = "🛡️"
 
-    # ── Статус шифрования ─────────────────────────────────
     enc_html = ""
     if encrypted:
         enc_html = """
@@ -435,7 +411,6 @@ def _build_ole_section(ole_result: dict, index: int) -> tuple:
                 🔒 Файл зашифрован паролем — содержимое недоступно без пароля
             </div>"""
 
-    # ── Статус VBA ────────────────────────────────────────
     if vba_found:
         risk_cls = "anomaly" if "КРИТИЧЕСКИЙ" in vba_risk else "warn"
         kw_rows  = ""
@@ -469,7 +444,6 @@ def _build_ole_section(ole_result: dict, index: int) -> tuple:
                 ✅ VBA-макросов не обнаружено
             </div>"""
 
-    # ── Статус DDE ────────────────────────────────────────
     if dde_found:
         dde_items = "".join(
             f"<div class='scan-finding anomaly'>🔴 {_e(f[:100])}</div>"
@@ -497,7 +471,6 @@ def _build_ole_section(ole_result: dict, index: int) -> tuple:
             </div>
         </div>"""
 
-    # ── Раскрывающийся блок: исходный код VBA ─────────────
     code_html = ""
     modules   = vba.get("Код макросов", [])
     if modules:
@@ -534,7 +507,6 @@ def _build_ole_section(ole_result: dict, index: int) -> tuple:
 
 
 def _build_local_card(meta: dict, anomalies: list, images: list, index: int, scan_result: dict = None, hidden_result: dict = None, ole_result: dict = None) -> str:
-    """Строит карточку локального файла в том же стиле что и Google Drive"""
     fname    = meta.get("Файл", "—")
     fpath    = meta.get("Полный путь", "")
     author   = meta.get("Автор", "—")
@@ -572,14 +544,12 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
 
     badge = _badges(total_traces, len(anomalies))
 
-    # Изображения
     images_summary = ""
     images_detail  = ""
     if images:
         images_summary, images_detail, all_traces, coords, devices = \
             _build_images_detail(images, f"local-{index}")
 
-    # ── СЕКЦИЯ: ФАЙЛ ─────────────────────────────────────
     file_section = f"""
         <div class="card-section">
             <div class="section-header">📄 Файл</div>
@@ -594,7 +564,6 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
             {_field("SHA256", f'<code class="hash">{sha256[:40]}...</code>' if len(sha256) > 40 else f'<code class="hash">{sha256}</code>')}
         </div>"""
 
-    # ── СЕКЦИЯ: АВТОРСТВО ────────────────────────────────
     author_section = f"""
         <div class="card-section">
             <div class="section-header">👤 Авторство</div>
@@ -605,7 +574,6 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
             {_field("Язык", language)}
         </div>"""
 
-    # ── СЕКЦИЯ: ПРИЛОЖЕНИЕ ───────────────────────────────
     protect_cls = "anomaly" if protect not in ("0","Нет данных","—") else "ok"
     shared_cls  = "anomaly" if shared == "true" else ""
 
@@ -619,7 +587,6 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
             {_field("Общий документ", shared, shared_cls)}
         </div>"""
 
-    # ── СЕКЦИЯ: СОДЕРЖИМОЕ ───────────────────────────────
     content_section = f"""
         <div class="card-section">
             <div class="section-header">📝 Содержимое</div>
@@ -640,7 +607,6 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
             </div>
         </div>"""
 
-    # ── СЕКЦИЯ: СКРЫТЫЙ ТЕКСТ ────────────────────────────
     hidden_section = ""
     if hidden_result and hidden_result.get("Скрытых фрагментов", 0) > 0:
         fragments = hidden_result.get("Скрытый текст", [])
@@ -687,7 +653,6 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
                     {anoms_html}
                 </div>"""
 
-    # ── СЕКЦИЯ: БЕЗОПАСНОСТЬ (вирусное сканирование) ─────
     security_section = ""
     if scan_result:
         risk = scan_result.get("Риск", "—")
@@ -710,11 +675,8 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
                     </div>"""
 
 
-
-    # ── СЕКЦИЯ: VBA / DDE (oletools) ─────────────────────
     ole_inline, ole_code = _build_ole_section(ole_result, f"loc-{index}")
 
-    # ── СЕТКА ────────────────────────────────────────────
     grid = f"""
             <div class="card-grid">
                 {file_section}
@@ -727,7 +689,6 @@ def _build_local_card(meta: dict, anomalies: list, images: list, index: int, sca
                 {images_summary}
             </div>"""
 
-    # ── АНОМАЛИИ ─────────────────────────────────────────
     anomaly_section = ""
     if anomalies:
         items = "".join(f"<li>{_e(a)}</li>" for a in anomalies)
@@ -854,7 +815,6 @@ def _build_doc_card(g: dict, index: int) -> str:
             </div>
         </div>"""
 
-    # Скрытый текст из Google Drive DOCX
     hidden_gdrive_section = ""
     scan_hidden = scan.get("Скрытый текст", {}) if scan else {}
     if scan_hidden and scan_hidden.get("Скрытых фрагментов", 0) > 0:
@@ -1081,7 +1041,6 @@ def generate_html_report(
     if local_ole_map is None:
         local_ole_map = {}
 
-    # ── GOOGLE DRIVE КАРТОЧКИ ─────────────────────────────
     google_cards_html = ""
     if google_results:
         for i, g in enumerate(google_results):
@@ -1095,7 +1054,6 @@ def generate_html_report(
             else:
                 google_cards_html += _build_doc_card(g, i)
 
-    # ── ЛОКАЛЬНЫЕ КАРТОЧКИ ────────────────────────────────
     local_cards_html = ""
     for i, meta in enumerate(results):
         fname = meta.get("Файл", "")
@@ -1109,7 +1067,6 @@ def generate_html_report(
         else:
             local_cards_html += _build_local_card(meta, anomalies, images, i, scan_result, hidden_result, ole_result)
 
-    # ── СТАТИСТИКА СЕКЦИЙ ─────────────────────────────────
     google_section_html = ""
     if google_results:
         total_images = sum(g.get("Сканирование файла",{}).get("Изображений найдено",0)

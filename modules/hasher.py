@@ -3,16 +3,10 @@ from __future__ import annotations
 import hashlib
 from modules.logger import log_action
 
-_CHUNK = 65536  # 64 КБ — не грузим весь файл в память
+_CHUNK = 65536
 
 
 def compute_hashes(filepath: str) -> dict[str, str]:
-    """Вычисляет MD5 и SHA256 хэши файла блочным чтением.
-
-    Работает корректно с файлами любого размера — данные читаются
-    по 64 КБ, без загрузки целого файла в оперативную память.
-    Хэши используются как криптографические доказательства целостности.
-    """
     md5 = hashlib.md5()
     sha = hashlib.sha256()
 

@@ -76,22 +76,6 @@ def _parse_gps_block(gps_raw):
 
 
 def _extract_makernotes(image_bytes: bytes) -> dict:
-    """
-    Извлекает MakerNotes и расширенные теги через exifread (IFD4).
-
-    MakerNotes — проприетарный блок EXIF, который каждый производитель
-    (Canon, Nikon, Sony, Apple, Samsung…) заполняет по собственному формату.
-    Pillow не парсит этот блок; exifread умеет читать большинство марок.
-
-    Возвращает:
-        {
-          "MakerNotes":                  {tag: value, ...},   # проприетарные теги
-          "Серийный номер (MakerNotes)": str,                  # из блока MakerNotes
-          "Владелец камеры":             str,                  # owner name если прописан
-          "Внутренний номер кадра":      str,                  # file number камеры
-          "Всего тегов":                 int,                  # сколько тегов распознал exifread
-        }
-    """
     out = {
         "MakerNotes":                  {},
         "Серийный номер (MakerNotes)": "",
@@ -110,42 +94,32 @@ def _extract_makernotes(image_bytes: bytes) -> dict:
 
         for tag_name, value in tags.items():
             str_val = str(value).strip()
-            # Пропускаем пустые, нулевые и сырые байтовые массивы "[N, N, N, ...]"
             if not str_val or str_val in ("0", "[0]", "[]", "None"):
                 continue
-            # Пропускаем нечитаемые сырые байты — длинные числовые массивы
             if str_val.startswith("[") and "," in str_val and any(c.isdigit() for c in str_val[:6]):
-                # Допускаем только короткие числовые значения (GPS, рациональные числа)
                 if len(str_val) > 40:
                     continue
-            # Пропускаем теги с hex-именами вида "Tag 0xXXXX" — нераспознанные блоки
             if "Tag 0x" in tag_name:
                 continue
 
             lower = tag_name.lower()
 
-            # ── MakerNotes ────────────────────────────────────────────
             if "makernote" in lower:
-                # Убираем префикс "MakerNote " для чистого отображения
                 parts = tag_name.split(" ", 1)
                 clean = parts[1] if len(parts) > 1 else tag_name
-                # Пропускаем сам блок MakerNote (сырые байты всего блока)
                 if clean.lower() in ("makernote", "makernoteversion"):
                     continue
                 out["MakerNotes"][clean] = str_val
 
-                # Серийный номер из MakerNotes (Canon, Nikon, Sony…)
                 if any(s in lower for s in ("serialnumber", "serial number",
                                             "cameraserial", "camera serial",
                                             "bodyserial", "body serial")):
                     out["Серийный номер (MakerNotes)"] = str_val
 
-                # Владелец камеры (Canon CameraOwnerName, Nikon Owner…)
                 if any(s in lower for s in ("ownername", "owner name",
                                             "cameraowner", "camera owner")):
                     out["Владелец камеры"] = str_val
 
-                # Внутренний номер кадра
                 if any(s in lower for s in ("filenumber", "file number",
                                             "imagenumber", "image number",
                                             "shaternumber", "shuttercount")):
@@ -159,11 +133,6 @@ def _extract_makernotes(image_bytes: bytes) -> dict:
 
 
 def extract_full_exif(image_bytes, filename):
-    """
-    Извлекает EXIF. Разделяет на:
-      - Следы (GPS, устройство, часовой пояс) — полезные данные для эксперта
-      - Аномалии (очистка, редакторы, несоответствия) — подозрительные факты
-    """
     result = {
         "Файл":                    filename,
         "Следы":                   [],
@@ -174,7 +143,7 @@ def extract_full_exif(image_bytes, filename):
         "GPS":                     {},
         "Временные метки":         {},
         "Программное обеспечение": {},
-        "MakerNotes":              {},   # проприетарные теги (Canon/Nikon/Sony…)
+        "MakerNotes":              {},
         "Сырой EXIF":              {},
     }
     if not PIL_AVAILABLE:
@@ -188,7 +157,6 @@ def extract_full_exif(image_bytes, filename):
             "Цветовая модель": img.mode,
             "Размер файла":    f"{round(len(image_bytes)/1024,2)} КБ",
         }
-        # getexif() — публичный API (Pillow 6.0+), работает для JPEG и TIFF
         exif_obj = img.getexif()
         raw_exif = dict(exif_obj) if exif_obj else None
         if not raw_exif:
@@ -275,11 +243,8 @@ def extract_full_exif(image_bytes, filename):
                 pass
         result["Программное обеспечение"] = soft
 
-        # ── GPS — используем get_ifd(0x8825), а не all_tags["GPSInfo"] ──
-        # all_tags["GPSInfo"] возвращает int (смещение в файле), а не dict.
-        # Правильный API: exif_obj.get_ifd(tag_id) — даёт настоящий словарь GPS IFD.
         try:
-            gps_ifd = exif_obj.get_ifd(0x8825)   # 0x8825 = GPS Info IFD
+            gps_ifd = exif_obj.get_ifd(0x8825)
             if gps_ifd:
                 gps_data = _parse_gps_block(gps_ifd)
                 result["GPS"] = gps_data
@@ -298,24 +263,20 @@ def extract_full_exif(image_bytes, filename):
             result["GPS"] = {"Статус": f"Ошибка разбора GPS: {gps_err}"}
             log_action(f"GPS ошибка {filename}: {gps_err}")
 
-        # ── ImageUniqueID ─────────────────────────────────────────────
         uid = all_tags.get("ImageUniqueID", "")
         if uid:
             result["Основное"]["Уникальный ID"] = str(uid)
             result["Следы"].append(f"🔐 Уникальный ID: {uid}")
 
-        # ── MakerNotes: второй слой анализа через exifread ──────────
         try:
             mn = _extract_makernotes(image_bytes)
             result["MakerNotes"] = mn.get("MakerNotes", {})
 
-            # Серийный номер из MakerNotes — если Pillow его не нашёл
             if not result["Камера"].get("Серийный номер камеры") and mn.get("Серийный номер (MakerNotes)"):
                 sn = mn["Серийный номер (MakerNotes)"]
                 result["Камера"]["Серийный номер камеры"] = f"{sn} ★MakerNotes"
                 result["Следы"].append(f"🔑 Серийный номер (MakerNotes): {sn}")
 
-            # Владелец камеры — уникальный след, редко встречается
             if mn.get("Владелец камеры"):
                 owner = mn["Владелец камеры"]
                 result["Программное обеспечение"]["Владелец камеры"] = owner
@@ -324,7 +285,6 @@ def extract_full_exif(image_bytes, filename):
                     f"Обнаружено имя владельца камеры: «{owner}» — прямая идентификация устройства"
                 )
 
-            # Внутренний номер кадра — показывает сколько снимков сделано этой камерой
             if mn.get("Внутренний номер кадра"):
                 fn = mn["Внутренний номер кадра"]
                 result["Камера"]["Номер кадра (всего по камере)"] = fn
@@ -347,10 +307,6 @@ def extract_full_exif(image_bytes, filename):
 
 
 def extract_images(filepath):
-    """
-    Извлекает все изображения из локального DOCX файла.
-    Использует полный EXIF анализ с разделением на Следы и Аномалии.
-    """
     images = []
     os.makedirs(REPORTS_DIR, exist_ok=True)
     try:

@@ -1,4 +1,3 @@
-"""Генератор тестовых DOCX-файлов с богатыми метаданными."""
 from docx import Document
 from datetime import datetime
 import os
@@ -7,7 +6,6 @@ OUT = "test_docs/clean"
 os.makedirs(OUT, exist_ok=True)
 
 
-# ── 1. Криминалистический акт (нормальные метаданные) ─────
 doc1 = Document()
 doc1.core_properties.author           = "Иванов Иван Иванович"
 doc1.core_properties.last_modified_by = "Петров Алексей"
@@ -41,7 +39,6 @@ doc1.save(path1)
 print(f"✅ {path1}")
 
 
-# ── 2. Договор (много правок, история редактирования) ─────
 doc2 = Document()
 doc2.core_properties.author           = "ООО ЮрПомощь"
 doc2.core_properties.last_modified_by = "Сидорова Мария"
@@ -70,12 +67,11 @@ doc2.save(path2)
 print(f"✅ {path2}")
 
 
-# ── 3. Документ с аномальными датами (форензик-ловушка) ───
 doc3 = Document()
 doc3.core_properties.author           = "root"
 doc3.core_properties.last_modified_by = "Administrator"
-doc3.core_properties.created          = datetime(1980, 1, 1, 0, 0)    # аномалия: до эпохи NTFS
-doc3.core_properties.modified         = datetime(2077, 12, 31, 23, 59)  # аномалия: будущее
+doc3.core_properties.created          = datetime(1980, 1, 1, 0, 0)
+doc3.core_properties.modified         = datetime(2077, 12, 31, 23, 59)
 doc3.core_properties.revision         = 1
 doc3.core_properties.title            = "System Configuration Manual"
 
@@ -88,11 +84,10 @@ doc3.save(path3)
 print(f"✅ {path3}")
 
 
-# ── 4. Отчёт с подозрительным автором (другая организация) ─
 doc4 = Document()
 doc4.core_properties.author           = "John Smith"
 doc4.core_properties.last_modified_by = "Неизвестный пользователь"
-doc4.core_properties.created          = datetime(2025, 2, 14, 3, 47)   # ночное время
+doc4.core_properties.created          = datetime(2025, 2, 14, 3, 47)
 doc4.core_properties.modified         = datetime(2025, 2, 14, 3, 52)
 doc4.core_properties.revision         = 1
 doc4.core_properties.title            = "Конфиденциальный финансовый отчёт Q4"
@@ -108,7 +103,6 @@ doc4.save(path4)
 print(f"✅ {path4}")
 
 
-# ── 5. Чистый простой документ (baseline) ─────────────────
 doc5 = Document()
 doc5.core_properties.author           = "Студент Курсовой"
 doc5.core_properties.last_modified_by = "Студент Курсовой"

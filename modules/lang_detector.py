@@ -7,7 +7,6 @@ try:
 except ImportError:
     LANGDETECT_AVAILABLE = False
 
-# Расшифровка кодов языков
 LANG_NAMES = {
     "ru": "Русский",
     "en": "Английский",
@@ -26,12 +25,6 @@ LANG_NAMES = {
 }
 
 def detect_language(filepath: str) -> dict:
-    """
-    Определяет язык текста документа.
-    Полезно при международных расследованиях —
-    помогает установить вероятное происхождение документа
-    и направить его на перевод нужному специалисту.
-    """
     result = {
         "Основной язык":       "Не определён",
         "Код языка":           "—",
@@ -52,12 +45,10 @@ def detect_language(filepath: str) -> dict:
             result["Примечание"] = "Текст слишком короткий для определения языка"
             return result
 
-        # Основной язык
         lang_code = detect(text)
         result["Код языка"]     = lang_code
         result["Основной язык"] = LANG_NAMES.get(lang_code, f"Неизвестный ({lang_code})")
 
-        # Все вероятности
         langs = detect_langs(text)
         result["Вероятности языков"] = [
             f"{LANG_NAMES.get(str(l).split(':')[0], str(l).split(':')[0])}: "

@@ -6,25 +6,23 @@ import webbrowser
 from datetime import datetime
 from tkinter import filedialog
 
-# ── Настройка темы ────────────────────────────────────────
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
-# Палитра: Noir de Vigne · Emerald Green · Wasabi · Creased Khaki · Egyptian Earth
 COLORS = {
-    "bg":      "#111A1B",  # Noir de Vigne
-    "bg2":     "#192421",  # тёмно-зелёный
-    "bg3":     "#1E2E25",  # Emerald тёмный
-    "bg4":     "#284139",  # Emerald Green
-    "border":  "#3D5A49",  # средний зелёный
-    "blue":    "#F8D794",  # Creased Khaki (основной акцент)
-    "blue2":   "#B87838",  # Egyptian Earth (кнопки)
-    "green":   "#7AA882",  # sage green (успех)
-    "red":     "#C8684A",  # терракота (ошибки/аномалии)
-    "yellow":  "#F8D794",  # Creased Khaki (предупреждения)
-    "text":    "#D5CCAA",  # тёплый пергамент
-    "text2":   "#8E9E84",  # Wasabi (вторичный текст)
-    "text3":   "#556A5A",  # тёмный Wasabi (подписи)
+    "bg":      "#111A1B",
+    "bg2":     "#192421",
+    "bg3":     "#1E2E25",
+    "bg4":     "#284139",
+    "border":  "#3D5A49",
+    "blue":    "#F8D794",
+    "blue2":   "#B87838",
+    "green":   "#7AA882",
+    "red":     "#C8684A",
+    "yellow":  "#F8D794",
+    "text":    "#D5CCAA",
+    "text2":   "#8E9E84",
+    "text3":   "#556A5A",
 }
 
 
@@ -40,7 +38,7 @@ class ForensicApp(ctk.CTk):
         try:
             self.iconbitmap("icon.ico")
         except Exception:
-            pass  # icon.ico не найден — продолжаем без иконки
+            pass
 
         self._last_report_path = None
         self._analysis_running = False
@@ -48,12 +46,8 @@ class ForensicApp(ctk.CTk):
 
         self._build_ui()
 
-        # Показываем локальный режим по умолчанию
         self._on_mode_change()
 
-    # ──────────────────────────────────────────────────────
-    # ПОСТРОЕНИЕ ИНТЕРФЕЙСА
-    # ──────────────────────────────────────────────────────
 
     def _build_ui(self):
         self._build_header()
@@ -61,7 +55,6 @@ class ForensicApp(ctk.CTk):
         self.main_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.main_frame.pack(fill="both", expand=True, padx=16, pady=(0, 16))
 
-        # Левая панель
         self.left_panel = ctk.CTkFrame(
             self.main_frame,
             fg_color=COLORS["bg2"],
@@ -73,7 +66,6 @@ class ForensicApp(ctk.CTk):
         self.left_panel.pack(side="left", fill="y", padx=(0, 12))
         self.left_panel.pack_propagate(False)
 
-        # Правая панель
         self.right_panel = ctk.CTkFrame(self.main_frame, fg_color="transparent")
         self.right_panel.pack(side="left", fill="both", expand=True)
 
@@ -119,7 +111,6 @@ class ForensicApp(ctk.CTk):
         self.status_label.pack(side="right", padx=24)
 
     def _build_left_panel(self):
-        # ── Режим работы ──────────────────────────────────
         self._section_label(self.left_panel, "РЕЖИМ АНАЛИЗА", top=16)
 
         self.mode_var = ctk.StringVar(value="local")
@@ -145,7 +136,6 @@ class ForensicApp(ctk.CTk):
 
         self._divider(self.left_panel)
 
-        # ── Локальный режим ───────────────────────────────
         self.local_frame = ctk.CTkFrame(self.left_panel, fg_color="transparent")
 
         self._section_label(self.local_frame, "ПАПКА С ФАЙЛАМИ")
@@ -178,12 +168,10 @@ class ForensicApp(ctk.CTk):
             command=self._browse_folder
         ).pack(side="left")
 
-        # ── Облачный режим ────────────────────────────────
         self.cloud_frame = ctk.CTkFrame(self.left_panel, fg_color="transparent")
 
         self._section_label(self.cloud_frame, "ССЫЛКА НА ДОКУМЕНТ")
 
-        # Поле ввода ссылки с поддержкой вставки
         self.url_entry = ctk.CTkEntry(
             self.cloud_frame,
             placeholder_text="Вставьте ссылку (Ctrl+V)...",
@@ -196,7 +184,6 @@ class ForensicApp(ctk.CTk):
         )
         self.url_entry.pack(fill="x", padx=16, pady=(0, 4))
 
-        # Подсказка про вставку
         ctk.CTkLabel(
             self.cloud_frame,
             text="💡 Ctrl+V для вставки из буфера обмена",
@@ -204,7 +191,6 @@ class ForensicApp(ctk.CTk):
             text_color=COLORS["text3"]
         ).pack(anchor="w", padx=16, pady=(0, 8))
 
-        # Кнопка вставить из буфера
         ctk.CTkButton(
             self.cloud_frame,
             text="📋  Вставить из буфера",
@@ -220,7 +206,6 @@ class ForensicApp(ctk.CTk):
 
         self._divider(self.left_panel)
 
-        # ── Кнопка запуска ────────────────────────────────
         self.run_btn = ctk.CTkButton(
             self.left_panel,
             text="▶   ЗАПУСТИТЬ АНАЛИЗ",
@@ -234,7 +219,6 @@ class ForensicApp(ctk.CTk):
         )
         self.run_btn.pack(fill="x", padx=16, pady=(10, 6))
 
-        # ── Кнопка открытия отчёта ────────────────────────
         self.report_btn = ctk.CTkButton(
             self.left_panel,
             text="📊   Открыть отчёт в браузере",
@@ -264,7 +248,6 @@ class ForensicApp(ctk.CTk):
 
         self._divider(self.left_panel)
 
-        # ── Прогресс ──────────────────────────────────────
         self._section_label(self.left_panel, "ПРОГРЕСС")
 
         self.progress_bar = ctk.CTkProgressBar(
@@ -287,7 +270,6 @@ class ForensicApp(ctk.CTk):
 
         self._divider(self.left_panel)
 
-        # ── Статистика ────────────────────────────────────
         self._section_label(self.left_panel, "ПОСЛЕДНИЙ АНАЛИЗ")
 
         stats = ctk.CTkFrame(
@@ -486,9 +468,6 @@ class ForensicApp(ctk.CTk):
             text_color=COLORS["text3"]
         ).pack(pady=(16, 0))
 
-    # ──────────────────────────────────────────────────────
-    # ЛОГИКА
-    # ──────────────────────────────────────────────────────
 
     def _on_mode_change(self):
         mode = self.mode_var.get()
@@ -513,7 +492,6 @@ class ForensicApp(ctk.CTk):
             self.folder_entry.insert(0, folder)
 
     def _paste_from_clipboard(self):
-        """Вставляет текст из буфера обмена в поле ссылки"""
         try:
             text = self.clipboard_get()
             if text:
@@ -669,7 +647,6 @@ class ForensicApp(ctk.CTk):
             except Exception as e:
                 self.after(0, lambda err=str(e): self._log(f"     ❌ Ошибка: {err}"))
 
-        # Генерация отчёта
         self.after(0, lambda: self._log("─" * 52))
         self.after(0, lambda: self._log("📊 Генерация HTML отчёта..."))
         self.after(0, lambda: self.progress_label.configure(text="Генерация отчёта..."))
@@ -807,7 +784,6 @@ class ForensicApp(ctk.CTk):
                     "Не указана", "Нет", "", None)
 
             if is_image:
-                # ── Изображение: показываем EXIF-поля ────
                 fields = [
                     "Разрешение", "Формат", "Размер",
                     "Устройство", "Производитель", "Модель камеры",
@@ -819,7 +795,6 @@ class ForensicApp(ctk.CTk):
                     "MD5", "SHA256",
                 ]
             else:
-                # ── Документ: стандартные поля ───────────
                 fields = [
                     "Автор", "Последний редактор", "Организация",
                     "Дата создания", "Дата изменения",
@@ -836,18 +811,15 @@ class ForensicApp(ctk.CTk):
                         "end", f"  {key:<26}: {val}\n"
                     )
 
-            # ── OLE / VBA / DDE (только для документов) ──
             if not is_image:
                 ole = ole_map.get(fname, {})
                 if ole:
                     self.results_text.insert("end", "\n  ☣️  VBA / DDE (oletools):\n")
 
-                    # Шифрование
                     enc = ole.get("Шифрование", {})
                     if enc.get("Зашифрован"):
                         self.results_text.insert("end", "     🔐 Файл зашифрован!\n")
 
-                    # VBA макросы
                     vba = ole.get("VBA", {})
                     vba_found = vba.get("Макросы обнаружены", False)
                     if vba_found:
@@ -862,7 +834,6 @@ class ForensicApp(ctk.CTk):
                             f"Риск: {risk}"
                             + ("  |  ⚡ Авто-запуск!" if auto else "") + "\n"
                         )
-                        # Ключевые слова — первые 5
                         if kw_list:
                             shown = kw_list[:5]
                             extra = len(kw_list) - 5
@@ -877,7 +848,6 @@ class ForensicApp(ctk.CTk):
                     else:
                         self.results_text.insert("end", "     ✅ VBA макросы не найдены\n")
 
-                    # DDE
                     dde = ole.get("DDE", {})
                     dde_found = dde.get("DDE обнаружен", False)
                     if dde_found:
@@ -898,11 +868,9 @@ class ForensicApp(ctk.CTk):
             self.results_text.insert("end", "\n")
 
         self.results_text.configure(state="disabled")
-        # Переключаемся на вкладку результатов
         self.tabview.set("📊   Результаты")
 
     def _update_cloud_results(self, results: list):
-        """Отображает результаты облачного анализа во вкладке Результаты"""
         self.results_text.configure(state="normal")
         self.results_text.delete("1.0", "end")
 
@@ -916,7 +884,6 @@ class ForensicApp(ctk.CTk):
             self.results_text.insert("end", f"  📄 {name}\n")
             self.results_text.insert("end", f"{'=' * 58}\n")
 
-            # Основные поля
             fields = [
                 "Название", "Тип файла (MIME)", "Размер",
                 "Владелец", "Email владельца",
@@ -931,7 +898,6 @@ class ForensicApp(ctk.CTk):
                 if val not in skip:
                     self.results_text.insert("end", f"  {key:<26}: {val}\n")
 
-            # Сканирование
             scan = r.get("Сканирование файла", {})
             if scan:
                 imgs = scan.get("Изображений найдено", 0)
@@ -942,7 +908,6 @@ class ForensicApp(ctk.CTk):
                     f"{'📍 GPS ОБНАРУЖЕН' if gps else 'GPS нет'}\n"
                 )
 
-                # Скрытый текст
                 hidden = scan.get("Скрытый текст", {})
                 if hidden and hidden.get("Скрытых фрагментов", 0) > 0:
                     self.results_text.insert(
@@ -956,7 +921,6 @@ class ForensicApp(ctk.CTk):
                             f"{frag['Скрытый текст'][:80]}\n"
                         )
 
-                # Аномалии
                 anom = scan.get("Все аномалии", [])
                 if anom:
                     self.results_text.insert(
@@ -988,7 +952,6 @@ class ForensicApp(ctk.CTk):
             self._log("❌ Отчёт не найден — сначала запустите анализ")
 
 
-# ── Точка входа ───────────────────────────────────────────
 if __name__ == "__main__":
     app = ForensicApp()
     app.mainloop()

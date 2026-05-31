@@ -2,7 +2,7 @@ import os
 import io
 import zipfile
 from modules.logger import log_action
-from modules.image_extractor import extract_full_exif  # единый источник EXIF-логики
+from modules.image_extractor import extract_full_exif
 
 try:
     from googleapiclient.http import MediaIoBaseDownload
@@ -30,7 +30,6 @@ EXPORT_MIME = {
     "application/vnd.google-apps.presentation":
         "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
-
 
 
 def download_file(service, file_id, mime_type):
@@ -98,10 +97,6 @@ def scan_pdf_images(file_bytes):
 
 
 def scan_cloud_file(service, file_id, mime_type, filename):
-    """
-    Скачивает файл из Google Drive и делает полный EXIF анализ.
-    Разделяет результаты на Следы файла и Аномалии.
-    """
     result = {
         "Файл":                filename,
         "MIME":                mime_type,
@@ -129,7 +124,6 @@ def scan_cloud_file(service, file_id, mime_type, filename):
     if "wordprocessingml" in eff_mime or mime_type == "application/msword":
         images = scan_docx_images(file_bytes)
 
-        # Анализ скрытого текста в DOCX
         try:
             import tempfile
             from modules.hidden_text import extract_hidden_text

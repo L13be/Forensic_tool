@@ -7,7 +7,7 @@ try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
-    pass  # python-dotenv не установлен — используем переменные окружения напрямую
+    pass
 
 try:
     import yadisk
@@ -17,10 +17,6 @@ except ImportError:
 
 
 def get_client() -> object:
-    """Создаёт клиент Яндекс.Диска.
-
-    Токен берётся из переменной окружения YANDEX_TOKEN (файл .env или системные env).
-    """
     if not YADISK_AVAILABLE:
         raise ImportError("Установите yadisk: pip install yadisk")
     token = os.environ.get("YANDEX_TOKEN", "")
@@ -37,14 +33,6 @@ def get_client() -> object:
 
 
 def extract_file_id(url: str) -> str:
-    """
-    Извлекает публичный ключ из ссылки Яндекс.Диска.
-    Поддерживает форматы:
-    - disk.yandex.ru/d/КЛЮЧ
-    - disk.yandex.ru/i/КЛЮЧ
-    - yadi.sk/d/КЛЮЧ
-    - yadi.sk/i/КЛЮЧ
-    """
     patterns = [
         r"disk\.yandex\.ru/d/([a-zA-Z0-9_-]+)",
         r"disk\.yandex\.ru/i/([a-zA-Z0-9_-]+)",
@@ -59,31 +47,21 @@ def extract_file_id(url: str) -> str:
 
 
 def is_folder(url: str) -> bool:
-    """
-    Проверяет является ли публичная ссылка папкой Яндекс.Диска.
-    Использует API: запрашивает тип ресурса (dir / file).
-    """
     try:
         client = get_client()
         info = client.get_public_meta(url)
         return getattr(info, "type", "") == "dir"
     except Exception:
-        # Fallback: папки Яндекс.Диска исторически используют /d/, файлы — /i/
-        # Это ненадёжный эвристик, но лучше чем ничего при ошибке API
         return "/d/" in url and "/i/" not in url
 
 
 def get_file_metadata(client, public_url: str) -> dict:
-    """
-    Получает полные метаданные файла через Яндекс.Диск API.
-    """
     try:
         info = client.get_public_meta(public_url)
 
         size     = getattr(info, "size", 0) or 0
         size_str = f"{size} байт ({round(size/1024, 2)} КБ)" if size else "Нет данных"
 
-        # Владелец
         owner = getattr(info, "owner", None)
         owner_login = "—"
         owner_name  = "—"
@@ -91,12 +69,10 @@ def get_file_metadata(client, public_url: str) -> dict:
             owner_login = getattr(owner, "login",        "—")
             owner_name  = getattr(owner, "display_name", "—")
 
-        # Даты
         created  = str(getattr(info, "created",  "—"))
         modified = str(getattr(info, "modified", "—"))
 
         metadata = {
-            # ── Поля совместимые с _build_doc_card ────────
             "ID документа": "—",
             "Название": getattr(info, "name", "—"),
             "Тип файла (MIME)": getattr(info, "mime_type", "—"),
@@ -106,7 +82,6 @@ def get_file_metadata(client, public_url: str) -> dict:
             "ID последней ревизии": "—",
             "Хранилище": "Яндекс.Диск",
 
-            # ── Авторство ─────────────────────────────────
             "Владелец": owner_name,
             "Email владельца": "—",
             "Последний редактор": "—",
@@ -114,20 +89,16 @@ def get_file_metadata(client, public_url: str) -> dict:
             "Поделился (имя)": "—",
             "Поделился (email)": "—",
 
-            # ── Временны́е метки ──────────────────────────
             "Дата создания": created,
             "Дата изменения": modified,
 
-            # ── Доступ ────────────────────────────────────
             "Общий доступ": "Да",
             "В корзине": "Нет",
             "Избранное": "—",
 
-            # ── Ссылки ────────────────────────────────────
             "Ссылка на документ": public_url,
             "Описание": "Нет",
 
-            # ── Доступ анализ ─────────────────────────────
             "[Доступ] Тип доступа": "🟢 Публичная ссылка",
             "[Доступ] Риск утечки": "Низкий",
             "[Доступ] Можно скачать": "Да",
@@ -135,14 +106,12 @@ def get_file_metadata(client, public_url: str) -> dict:
             "[Доступ] Можно расшарить дальше": "—",
             "[Доступ] Можно копировать": "—",
 
-            # ── Яндекс специфичные поля ───────────────────
             "MD5 (Яндекс)": getattr(info, "md5", "—"),
             "SHA256 (Яндекс)": getattr(info, "sha256", "—"),
             "Владелец (логин)": owner_login,
             "Тип ресурса": getattr(info, "type", "—"),
             "Превью доступно": "Да" if getattr(info, "preview", None) else "Нет",
 
-            # ── Права доступа (пустые для совместимости) ──
             "Права доступа": [],
         }
 
@@ -159,7 +128,6 @@ def get_file_metadata(client, public_url: str) -> dict:
 
 
 def download_file(client, public_url: str) -> bytes:
-    """Скачивает файл с Яндекс.Диска в память"""
     try:
         buf = io.BytesIO()
         client.download_public(public_url, buf)
@@ -170,7 +138,6 @@ def download_file(client, public_url: str) -> bytes:
 
 
 def list_folder_files(client, public_url: str) -> list:
-    """Получает список файлов в публичной папке"""
     SUPPORTED_MIME = [
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/pdf",
@@ -211,12 +178,6 @@ def list_folder_files(client, public_url: str) -> list:
 
 
 def scan_yandex_file(client, public_url: str, mime_type: str, filename: str) -> dict:
-    """
-    Скачивает файл и делает полный forensic анализ:
-    - EXIF изображений
-    - Скрытый текст в DOCX
-    - Вирусное сканирование
-    """
     from modules.cloud.file_scanner import (
         scan_docx_images, scan_pdf_images,
         extract_full_exif
@@ -247,11 +208,9 @@ def scan_yandex_file(client, public_url: str, mime_type: str, filename: str) -> 
     result["Статус скачивания"] = f"✅ Скачан ({size_kb} КБ)"
     print(f"  ✅ Скачан: {size_kb} КБ")
 
-    # Анализ по типу файла
     if "wordprocessingml" in mime_type or mime_type == "application/msword":
         images = scan_docx_images(file_bytes)
 
-        # Скрытый текст
         try:
             import tempfile
             from modules.hidden_text import extract_hidden_text
@@ -274,7 +233,6 @@ def scan_yandex_file(client, public_url: str, mime_type: str, filename: str) -> 
         except Exception as e:
             log_action(f"Ошибка анализа скрытого текста: {e}")
 
-        # Вирусное сканирование
         try:
             import tempfile
             from modules.virus_scanner import scan_file
@@ -334,9 +292,6 @@ def scan_yandex_file(client, public_url: str, mime_type: str, filename: str) -> 
 
 
 def analyze_yandex_file(url: str) -> dict:
-    """
-    Главная функция — анализ файла или папки Яндекс.Диска по публичной ссылке.
-    """
     try:
         print("\n  🔐 Подключение к Яндекс.Диску...")
         client = get_client()
@@ -351,7 +306,6 @@ def analyze_yandex_file(url: str) -> dict:
         mime_type = metadata.get("Тип файла (MIME)", "")
         filename  = metadata.get("Название", "unknown")
 
-        # Сканирование файла
         SCANNABLE = [
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             "application/pdf",
@@ -375,7 +329,6 @@ def analyze_yandex_file(url: str) -> dict:
 
 
 def analyze_yandex_folder(url: str) -> list:
-    """Анализирует все файлы в публичной папке Яндекс.Диска"""
     try:
         print("\n  🔐 Подключение к Яндекс.Диску...")
         client = get_client()

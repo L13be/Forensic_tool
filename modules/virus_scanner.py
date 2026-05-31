@@ -3,14 +3,12 @@ import zipfile
 import xml.etree.ElementTree as ET
 from modules.logger import log_action
 
-# Опасные расширения файлов внутри архива
 DANGEROUS_EXTENSIONS = {
     ".exe", ".dll", ".bat", ".cmd", ".ps1", ".vbs", ".js",
     ".jar", ".scr", ".pif", ".com", ".msi", ".reg", ".hta",
     ".wsf", ".wsh", ".lnk", ".inf", ".sys", ".drv",
 }
 
-# Подозрительные строки в XML
 SUSPICIOUS_PATTERNS = [
     "cmd.exe", "powershell", "wscript", "cscript",
     "shell32", "CreateObject", "WScript.Shell",
@@ -19,7 +17,6 @@ SUSPICIOUS_PATTERNS = [
     "Document_Open", "Workbook_Open",
 ]
 
-# Подозрительные домены (шаблоны)
 SUSPICIOUS_DOMAINS = [
     "bit.ly", "tinyurl", "goo.gl", "ow.ly",
     "pastebin", "ngrok", "duckdns",
@@ -27,26 +24,22 @@ SUSPICIOUS_DOMAINS = [
 
 
 def _check_embedded_files(filepath: str) -> list:
-    """Проверяет содержимое DOCX/PPTX/XLSX как ZIP-архива на опасные вложения."""
     findings = []
     try:
         with zipfile.ZipFile(filepath, "r") as z:
             for name in z.namelist():
                 ext = os.path.splitext(name)[1].lower()
 
-                # Опасное расширение встроенного файла
                 if ext in DANGEROUS_EXTENSIONS:
                     findings.append(
                         f"🔴 Обнаружен опасный файл внутри документа: {name}"
                     )
 
-                # vbaProject — макросы
                 if "vbaProject" in name:
                     findings.append(
                         f"🟡 Обнаружен модуль макросов: {name} — требует проверки"
                     )
 
-                # oleObject — внедрённые OLE объекты
                 if "oleObject" in name.lower() or "embeddings" in name.lower():
                     findings.append(
                         f"🟡 Обнаружен OLE/Embedded объект: {name}"
@@ -61,7 +54,6 @@ def _check_embedded_files(filepath: str) -> list:
 
 
 def _check_xml_content(filepath: str) -> list:
-    """Сканирует XML содержимое DOCX на подозрительные паттерны и URL."""
     import re as _re
 
     findings = []
@@ -86,14 +78,12 @@ def _check_xml_content(filepath: str) -> list:
                     content = z.read(xml_name).decode("utf-8", errors="ignore")
                     content_lower = content.lower()
 
-                    # Проход 1: подозрительные паттерны (макросы, shell-команды)
                     for pattern in SUSPICIOUS_PATTERNS:
                         if pattern.lower() in content_lower:
                             findings.append(
                                 f"🟡 Подозрительный паттерн «{pattern}» в {xml_name}"
                             )
 
-                    # Проход 2: URL — только подозрительные домены
                     urls = _re.findall(r'https?://[^\s"\'<>]+', content)
                     for url in urls:
                         if any(ns in url for ns in SAFE_NAMESPACES):
@@ -112,7 +102,6 @@ def _check_xml_content(filepath: str) -> list:
     return findings
 
 def _check_external_links(filepath: str) -> list:
-    """Проверяет внешние ссылки в .rels файлах"""
     findings = []
     try:
         with zipfile.ZipFile(filepath, "r") as z:
@@ -135,7 +124,6 @@ def _check_external_links(filepath: str) -> list:
                         if not any(p in target.lower() for p in ["http://", "https://", "ftp://"]):
                             continue
 
-                        # Template Injection — всегда критично
                         if "attachedTemplate" in rel_type and target.startswith("http"):
                             findings.append(
                                 f"🔴 ОПАСНО: Шаблон загружается с внешнего URL: {target} "
@@ -143,14 +131,11 @@ def _check_external_links(filepath: str) -> list:
                             )
                             continue
 
-                        # Подозрительные домены — высокий риск
                         is_suspicious = any(d in target.lower() for d in SUSPICIOUS_DOMAINS)
                         if is_suspicious:
                             findings.append(
                                 f"🔴 Подозрительная внешняя ссылка: {target}"
                             )
-                        # Обычные ссылки — просто информируем, не помечаем как угрозу
-                        # (списки литературы, источники и т.д.)
 
                 except Exception:
                     continue
@@ -162,13 +147,11 @@ def _check_external_links(filepath: str) -> list:
 
 
 def _check_pdf(filepath: str) -> list:
-    """Статический анализ PDF на подозрительное содержимое"""
     findings = []
     try:
         with open(filepath, "rb") as f:
             content = f.read().decode("latin-1", errors="ignore")
 
-        # Опасные ключевые слова в PDF
         pdf_dangerous = {
             "/JavaScript": "JavaScript код в PDF (возможна интерактивная форма или угроза)",
             "/JS": "JavaScript — сокращённая форма (возможна интерактивная форма или угроза)",
@@ -188,7 +171,6 @@ def _check_pdf(filepath: str) -> list:
                 level = "🔴" if keyword in ("/JavaScript", "/Launch", "/OpenAction") else "🟡"
                 findings.append(f"{level} PDF: {description} ({keyword})")
 
-        # Проверка на подозрительные домены в PDF
         for domain in SUSPICIOUS_DOMAINS:
             if domain in content.lower():
                 findings.append(f"🔴 PDF: Подозрительный домен «{domain}»")
@@ -200,25 +182,22 @@ def _check_pdf(filepath: str) -> list:
 
 
 def _check_image(filepath: str) -> list:
-    """Проверка изображений на стеганографию и аномальный размер"""
     findings = []
     try:
         size = os.path.getsize(filepath)
         ext  = os.path.splitext(filepath)[1].lower()
 
-        # Аномально большой размер для изображения
-        if ext in (".jpg", ".jpeg") and size > 10 * 1024 * 1024:  # > 10 МБ
+        if ext in (".jpg", ".jpeg") and size > 10 * 1024 * 1024:
             findings.append(
                 f"🟡 Аномально большой JPEG ({round(size/1024/1024, 1)} МБ) "
                 f"— возможна стеганография"
             )
-        if ext == ".png" and size > 20 * 1024 * 1024:  # > 20 МБ
+        if ext == ".png" and size > 20 * 1024 * 1024:
             findings.append(
                 f"🟡 Аномально большой PNG ({round(size/1024/1024, 1)} МБ) "
                 f"— возможна стеганография"
             )
 
-        # Проверка сигнатуры файла (magic bytes)
         with open(filepath, "rb") as f:
             header = f.read(16)
 
@@ -247,15 +226,13 @@ def _check_image(filepath: str) -> list:
                 f"— файл может быть замаскирован"
             )
 
-        # Проверка на ZIP внутри изображения (polyglot файл)
         with open(filepath, "rb") as f:
             content = f.read()
-        if b"PK\x03\x04" in content[100:]:  # ZIP сигнатура не в начале
+        if b"PK\x03\x04" in content[100:]:
             findings.append(
                 "🔴 Обнаружен ZIP-архив внутри изображения — возможен polyglot файл"
             )
 
-        # Проверка на PE (exe) внутри изображения
         if b"MZ" in content[100:] and b"PE\x00\x00" in content:
             findings.append(
                 "🔴 Обнаружена сигнатура исполняемого файла (PE) внутри изображения"
@@ -268,11 +245,6 @@ def _check_image(filepath: str) -> list:
 
 
 def scan_file(filepath: str) -> dict:
-    """
-    Главная функция — статический анализ файла на угрозы.
-    Работает без внешних зависимостей.
-    Поддерживает: DOCX, PPTX, XLSX, PDF, JPG, PNG, GIF, BMP, TIFF
-    """
     ext      = os.path.splitext(filepath)[1].lower()
     fname    = os.path.basename(filepath)
     findings = []
@@ -280,24 +252,20 @@ def scan_file(filepath: str) -> dict:
 
     log_action(f"Вирусное сканирование: {fname}")
 
-    # DOCX / PPTX / XLSX — анализируем как ZIP
     if ext in (".docx", ".pptx", ".xlsx", ".doc"):
         findings += _check_embedded_files(filepath)
         findings += _check_xml_content(filepath)
         findings += _check_external_links(filepath)
 
-    # PDF
     elif ext == ".pdf":
         findings += _check_pdf(filepath)
 
-    # Изображения
     elif ext in (".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff"):
         findings += _check_image(filepath)
 
     else:
         findings.append(f"🟡 Тип файла {ext} не поддерживается для сканирования")
 
-    # Определяем уровень риска
     red_count    = sum(1 for f in findings if f.startswith("🔴"))
     yellow_count = sum(1 for f in findings if f.startswith("🟡"))
 

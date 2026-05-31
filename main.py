@@ -1,5 +1,5 @@
 import os
-import fitz  # PyMuPDF
+import fitz
 import zipfile
 from pptx import Presentation
 from colorama import init, Fore, Style
@@ -37,27 +37,17 @@ def print_section(title: str):
     print(Fore.CYAN + f"\n  ── {title} " + "─" * (45 - len(title)))
 
 def _parse_pdf_date(raw: str) -> str:
-    """
-    Конвертирует дату PDF формата D:YYYYMMDDHHmmSSOHH'mm'
-    в читаемый вид: DD.MM.YYYY HH:MM:SS
-    Примеры входных данных:
-      D:20210803161707Z00'00'
-      D:20210803161707+03'00'
-      D:20210803161707
-    """
     if not raw or raw == "—":
         return "—"
     try:
-        # Убираем префикс D:
         s = raw.strip()
         if s.startswith("D:"):
             s = s[2:]
 
-        # Берём только первые 14 символов (YYYYMMDDHHmmSS)
         s = s[:14]
 
         if len(s) < 8:
-            return raw  # не можем распарсить — возвращаем как есть
+            return raw
 
         year  = s[0:4]
         month = s[4:6]  if len(s) >= 6  else "01"
@@ -69,11 +59,10 @@ def _parse_pdf_date(raw: str) -> str:
         return f"{day}.{month}.{year} {hour}:{minute}:{sec}"
 
     except Exception:
-        return raw  # если что-то пошло не так — оригинал
+        return raw
 
 
 def analyze_file(filepath: str) -> dict:
-    """Полный форензик-анализ одного DOCX файла"""
 
     fname = os.path.basename(filepath)
     print(Fore.YELLOW + f"\n{'='*60}")
@@ -82,7 +71,6 @@ def analyze_file(filepath: str) -> dict:
 
     full_result = {"filepath": filepath}
 
-    # 0. Предварительная проверка: зашифрованный файл?
     try:
         import msoffcrypto
         with open(filepath, "rb") as _f:
@@ -109,16 +97,14 @@ def analyze_file(filepath: str) -> dict:
                                   "Аномалии": ["🔒 Файл зашифрован"]},
                 }
     except Exception:
-        pass  # msoffcrypto недоступен или ошибка — продолжаем обычный анализ
+        pass
 
-    # 1. Метаданные
     print_section("МЕТАДАННЫЕ")
     metadata = extract_metadata(filepath)
     for key, value in metadata.items():
         print(f"     {Fore.WHITE}{key:25}: {Fore.GREEN}{value}")
     full_result["metadata"] = metadata
 
-    # 2. Детектор аномалий
     print_section("ДЕТЕКТОР АНОМАЛИЙ")
     anomalies = detect_anomalies(metadata)
     if anomalies:
@@ -128,7 +114,6 @@ def analyze_file(filepath: str) -> dict:
         print(Fore.GREEN + "     ✅ Аномалий не обнаружено")
     full_result["anomalies"] = anomalies
 
-    # 3. XML-структура
     print_section("XML СТРУКТУРА")
     xml_info = analyze_xml_structure(filepath)
     print(f"     {Fore.WHITE}Файлов внутри DOCX : {Fore.GREEN}{len(xml_info['Все файлы внутри DOCX'])}")
@@ -140,7 +125,6 @@ def analyze_file(filepath: str) -> dict:
         print(Fore.YELLOW + f"     ⚠️  Нестандартные компоненты: {xml_info['Нестандартные компоненты']}")
     full_result["xml"] = xml_info
 
-    # 4. URL и гиперссылки
     print_section("URL И ГИПЕРССЫЛКИ (OSINT)")
     url_info = extract_urls(filepath)
     print(f"     {Fore.WHITE}Гиперссылок найдено: {Fore.GREEN}{len(url_info['Гиперссылки из XML'])}")
@@ -155,7 +139,6 @@ def analyze_file(filepath: str) -> dict:
     print(f"     {Fore.WHITE}Уникальных доменов : {Fore.GREEN}{domains}")
     full_result["urls"] = url_info
 
-    # 5. Скрытый текст (w:vanish)
     print_section("СКРЫТЫЙ ТЕКСТ (w:vanish)")
     hidden = extract_hidden_text(filepath)
     if hidden["Скрытых фрагментов"] > 0:
@@ -167,13 +150,11 @@ def analyze_file(filepath: str) -> dict:
                 print(Fore.WHITE + f"        Контекст: {fragment['Контекст']}")
         for anom in hidden["Аномалии"]:
             print(Fore.RED + f"     {anom}")
-        # Добавляем в общий список аномалий
         full_result["anomalies"] += hidden["Аномалии"]
     else:
         print(Fore.GREEN + "     ✅ Скрытый текст не обнаружен")
     full_result["hidden"] = hidden
 
-    # 6. Изображения и EXIF
     print_section("ИЗОБРАЖЕНИЯ И EXIF")
     images = extract_images(filepath)
     if images:
@@ -213,7 +194,6 @@ def analyze_file(filepath: str) -> dict:
         print(Fore.WHITE + "     Изображений не найдено")
     full_result["images"] = images
 
-    # 7. Вирусное сканирование
     print_section("ВИРУСНОЕ СКАНИРОВАНИЕ")
     scan = scan_file(filepath)
     print(f"     {Fore.WHITE}Риск: {scan['Риск']}")
@@ -224,7 +204,6 @@ def analyze_file(filepath: str) -> dict:
         print(Fore.GREEN + "     ✅ Угроз не обнаружено")
     full_result["scan"] = scan
 
-    # 8. Язык документа
     print_section("ЯЗЫК ДОКУМЕНТА")
     lang_info = detect_language(filepath)
     lang_main = lang_info.get("Основной язык", "Не определён")
@@ -237,7 +216,6 @@ def analyze_file(filepath: str) -> dict:
         print(Fore.YELLOW + f"     ℹ️  {lang_note}")
     full_result["language"] = lang_info
 
-    # 9. OLE-форензик (oletools)
     print_section("VBA / DDE / OLE АНАЛИЗ (oletools)")
     ole = full_ole_analysis(filepath)
     vba = ole.get("VBA", {})
@@ -275,14 +253,12 @@ def analyze_file(filepath: str) -> dict:
     if not vba_found and not dde_found and not enc.get("Зашифрован"):
         print(Fore.GREEN + "     ✅ Подозрительного содержимого не обнаружено")
 
-    # Добавляем OLE-аномалии в общий список
     full_result["anomalies"] += ole.get("Аномалии", [])
     full_result["ole"] = ole
 
     return full_result
 
 def analyze_other_file(filepath: str, ext: str) -> dict:
-    """Анализ не-DOCX файлов: PDF, PPTX, изображения"""
 
     fname = os.path.basename(filepath)
     print(Fore.YELLOW + f"\n{'='*60}")
@@ -301,7 +277,6 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
     anomalies = []
     images    = []
 
-    # ── ИЗОБРАЖЕНИЯ (JPG, PNG и т.д.) ────────────────────
     if ext in (".jpg", ".jpeg", ".png", ".tiff", ".bmp"):
         print_section("EXIF АНАЛИЗ ИЗОБРАЖЕНИЯ")
         with open(filepath, "rb") as f:
@@ -311,7 +286,6 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
         exif["Размер (байт)"] = len(image_bytes)
         images.append(exif)
 
-        # Маркер для роутинга карточки в reporter.py
         metadata["_тип"] = "image"
 
         camera = exif.get("Камера", {})
@@ -321,13 +295,11 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
         shoot  = exif.get("Параметры съёмки", {})
         base   = exif.get("Основное", {})
 
-        # ── Основное ─────────────────────────────────────
         if base.get("Разрешение"):
             print(f"     {Fore.WHITE}📐 Разрешение  : {base['Разрешение']}")
         if base.get("Формат"):
             print(f"     {Fore.WHITE}📁 Формат      : {base['Формат']}")
 
-        # ── Камера ────────────────────────────────────────
         if camera.get("Устройство"):
             print(f"     {Fore.YELLOW}📱 Устройство  : {camera['Устройство']}")
         if camera.get("Серийный номер камеры"):
@@ -335,7 +307,6 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
         if camera.get("Объектив"):
             print(f"     {Fore.YELLOW}🔭 Объектив    : {camera['Объектив']}")
 
-        # ── Параметры съёмки ──────────────────────────────
         if shoot.get("ISO"):
             print(f"     {Fore.WHITE}📷 ISO         : {shoot['ISO']}")
         if shoot.get("Диафрагма"):
@@ -345,7 +316,6 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
         if shoot.get("Фокусное расстояние"):
             print(f"     {Fore.WHITE}   Фокус       : {shoot['Фокусное расстояние']}")
 
-        # ── Временные метки ───────────────────────────────
         if times.get("Дата и время съёмки"):
             print(f"     {Fore.WHITE}📅 Дата съёмки : {times['Дата и время съёмки']}")
         if times.get("Дата оцифровки"):
@@ -353,13 +323,11 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
         if times.get("Часовой пояс съёмки"):
             print(f"     {Fore.YELLOW}🕐 Часовой пояс: {times['Часовой пояс съёмки']}")
 
-        # ── ПО и автор ────────────────────────────────────
         if soft.get("ПО обработки"):
             print(f"     {Fore.YELLOW}🖼️  ПО          : {soft['ПО обработки']}")
         if soft.get("Автор (Artist)"):
             print(Fore.RED + f"     👤 Artist      : {soft['Автор (Artist)']}")
 
-        # ── GPS ───────────────────────────────────────────
         if gps.get("Координаты"):
             print(Fore.RED  + f"     📍 GPS         : {gps['Координаты']}")
             print(Fore.CYAN + f"     🗺️  Maps        : {gps['Google Maps']}")
@@ -371,13 +339,11 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
                 print(f"     {Fore.WHITE}🕐 Время GPS    : {gps['Время GPS (UTC)']}")
             anomalies.append(f"📍 GPS обнаружен: {gps['Координаты']}")
 
-        # ── Примечание / ошибка ───────────────────────────
         if exif.get("Примечание"):
             print(Fore.YELLOW + f"     ℹ️  {exif['Примечание']}")
         if exif.get("Ошибка"):
             print(Fore.RED + f"     ❌ Ошибка EXIF : {exif['Ошибка']}")
 
-        # ── Копируем все поля EXIF в metadata для отчёта ──
         if base.get("Разрешение"):  metadata["Разрешение"]             = base["Разрешение"]
         if base.get("Формат"):      metadata["Формат"]                 = base["Формат"]
         if camera.get("Устройство"):           metadata["Устройство"]              = camera["Устройство"]
@@ -406,7 +372,6 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
 
         anomalies.extend(exif.get("Аномалии", []))
 
-    # ── PDF ───────────────────────────────────────────────
     elif ext == ".pdf":
         print_section("АНАЛИЗ PDF")
         try:
@@ -458,7 +423,6 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
         except Exception as e:
             print(Fore.RED + f"  ❌ Ошибка PDF: {e}")
 
-    # ── PPTX ─────────────────────────────────────────────
     elif ext == ".pptx":
         print_section("АНАЛИЗ PPTX")
         try:
@@ -506,7 +470,6 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
         except Exception as e:
             print(Fore.RED + f"  ❌ Ошибка PPTX: {e}")
 
-    # ── OLE / VBA / DDE — для DOCX-подобных форматов ────
     ole_result = {}
     if ext in (".docx", ".xlsx", ".pptx", ".doc", ".xls", ".ppt",
                ".xlsm", ".docm", ".pptm"):
@@ -542,8 +505,6 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
 
         anomalies.extend(ole_result.get("Аномалии", []))
 
-    # ── АНОМАЛИИ ─────────────────────────────────────────
-    # Этот блок всегда выполняется, независимо от типа файла
     print_section("АНОМАЛИИ")
     if anomalies:
         for a in anomalies:
@@ -551,7 +512,6 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
     else:
         print(Fore.GREEN + "     ✅ Аномалий не обнаружено")
 
-    # ── ВИРУСНОЕ СКАНИРОВАНИЕ ─────────────────────────────
     print_section("ВИРУСНОЕ СКАНИРОВАНИЕ")
     scan = scan_file(filepath)
     print(f"     {Fore.WHITE}Риск: {scan['Риск']}")
@@ -576,9 +536,7 @@ def analyze_other_file(filepath: str, ext: str) -> dict:
 
 
 def analyze_folder(folder_path: str):
-    """Пакетный анализ всех поддерживаемых файлов в папке"""
 
-    # Поддерживаемые расширения
     SUPPORTED = {
         ".docx": "Word документ",
         ".pdf":  "PDF документ",
@@ -617,7 +575,6 @@ def analyze_folder(folder_path: str):
     for filepath, ext, ftype in all_files:
         if ext == ".docx":
             result = analyze_file(filepath)
-            # Добавляем язык в метаданные для отчёта
             lang = result.get("language", {})
             if lang.get("Основной язык") and lang["Основной язык"] != "Не определён":
                 result["metadata"]["Язык документа"] = lang["Основной язык"]
@@ -652,18 +609,15 @@ def analyze_folder(folder_path: str):
 
 
 def print_image_scan_results(scan_result: dict):
-    """Красивый вывод результатов сканирования изображений"""
 
     print(Fore.CYAN + f"\n  ── СКАНИРОВАНИЕ ИЗОБРАЖЕНИЙ {'─'*30}")
     print(f"  {Fore.WHITE}Изображений найдено : {Fore.GREEN}{scan_result.get('Изображений найдено', 0)}")
     print(f"  {Fore.WHITE}GPS обнаружен       : {Fore.RED if scan_result.get('GPS обнаружен') else Fore.GREEN}{'Да ⚠️' if scan_result.get('GPS обнаружен') else 'Нет'}")
 
-    # Устройства
     devices = scan_result.get("Устройства", [])
     if devices:
         print(f"  {Fore.WHITE}Устройства          : {Fore.YELLOW}{', '.join(devices)}")
 
-    # GPS координаты
     for coord in scan_result.get("Координаты", []):
         print(Fore.RED + f"\n  📍 GPS в файле: {coord['Файл']}")
         print(f"     {Fore.WHITE}Координаты  : {Fore.GREEN}{coord['Координаты']}")
@@ -676,7 +630,6 @@ def print_image_scan_results(scan_result: dict):
         if coord.get("Время GPS") != "—":
             print(f"     {Fore.WHITE}Время GPS   : {Fore.GREEN}{coord['Время GPS']}")
 
-    # Детали по каждому изображению
     images = scan_result.get("Изображения", [])
     for img in images:
         if "Ошибка" in img or "Примечание" in img:
@@ -685,13 +638,11 @@ def print_image_scan_results(scan_result: dict):
         print(Fore.CYAN + f"\n  🖼️  {img.get('Файл', '—')} "
               f"| {img.get('Источник', '—')}")
 
-        # Основное
         osnovnoe = img.get("Основное", {})
         if osnovnoe:
             print(f"     {Fore.WHITE}Разрешение  : {Fore.GREEN}{osnovnoe.get('Разрешение', '—')}")
             print(f"     {Fore.WHITE}Размер      : {Fore.GREEN}{osnovnoe.get('Размер файла', '—')}")
 
-        # Камера
         camera = img.get("Камера", {})
         if camera.get("Устройство"):
             print(f"     {Fore.WHITE}Устройство  : {Fore.YELLOW}{camera['Устройство']}")
@@ -700,35 +651,30 @@ def print_image_scan_results(scan_result: dict):
         if camera.get("Объектив"):
             print(f"     {Fore.WHITE}Объектив    : {Fore.GREEN}{camera['Объектив']}")
 
-        # Временные метки
         times = img.get("Временные метки", {})
         if times.get("Дата и время съёмки"):
             print(f"     {Fore.WHITE}Дата съёмки : {Fore.GREEN}{times['Дата и время съёмки']}")
         if times.get("Часовой пояс съёмки"):
             print(f"     {Fore.WHITE}Часовой пояс: {Fore.YELLOW}{times['Часовой пояс съёмки']}")
 
-        # ПО
         soft = img.get("Программное обеспечение", {})
         if soft.get("ПО обработки"):
             print(f"     {Fore.WHITE}ПО обработки: {Fore.YELLOW}{soft['ПО обработки']}")
         if soft.get("Автор (Artist)"):
             print(f"     {Fore.WHITE}Artist      : {Fore.RED}{soft['Автор (Artist)']}")
 
-        # Аномалии изображения
         anomalies = img.get("Аномалии", [])
         if anomalies:
             print(Fore.RED + f"     ⚠️  Аномалии ({len(anomalies)}):")
             for a in anomalies:
                 print(Fore.RED + f"        → {a}")
 
-    # Общие аномалии
     all_anomalies = scan_result.get("Все аномалии", [])
     if all_anomalies:
         print(Fore.RED + f"\n  ⚠️  ИТОГО АНОМАЛИЙ: {len(all_anomalies)}")
 
 
 def analyze_google_doc_mode():
-    """Режим анализа Google Drive — файл или папка"""
     url = input(
         Fore.YELLOW + "  Вставьте ссылку на файл или папку Google Drive: "
         + Style.RESET_ALL
@@ -747,7 +693,6 @@ def analyze_google_doc_mode():
             print(Fore.RED + "  ❌ Нет результатов.")
             return
 
-        # Выводим краткую сводку
         print(Fore.CYAN + f"\n{'='*60}")
         print(Fore.CYAN + f"  📊 СВОДКА: проанализировано {len(results)} файлов")
         print(Fore.CYAN + f"{'='*60}")
@@ -768,13 +713,11 @@ def analyze_google_doc_mode():
                 f"{Fore.RED}{gps}"
             )
 
-        # Генерируем один общий отчёт
         print(Fore.CYAN + f"\n{'='*60}")
         print(Fore.CYAN + "  📊 ГЕНЕРАЦИЯ ОТЧЁТА")
         generate_html_report([], {}, google_results=results)
 
     else:
-        # Одиночный файл — старая логика
         try:
             result = analyze_google_doc(url)
         except Exception as e:
@@ -813,7 +756,6 @@ def analyze_google_doc_mode():
     log_action("Анализ Google Drive завершён")
 
 def analyze_yandex_mode():
-    """Режим анализа Яндекс.Диска"""
     from modules.cloud.yandex_disk import (
         analyze_yandex_file, analyze_yandex_folder,
         is_folder as yandex_is_folder,
