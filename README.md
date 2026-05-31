@@ -219,6 +219,5 @@ python main.py
 
 <div align="center">
 
-**РТУ МИРЭА · Курсовая работа · 2026**
 
 </div>
