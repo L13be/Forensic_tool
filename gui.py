@@ -575,10 +575,12 @@ class ForensicApp(ctk.CTk):
         from modules.exporter         import export_to_csv
 
         SUPPORTED = {
-            ".docx": "Word",  ".pdf":  "PDF",
-            ".pptx": "PPTX",  ".jpg":  "JPEG",
-            ".jpeg": "JPEG",  ".png":  "PNG",
-            ".tiff": "TIFF",  ".bmp":  "BMP",
+            ".docx": "Word",  ".docm": "Word+Macro",
+            ".doc":  "Word Legacy",
+            ".pdf":  "PDF",   ".pptx": "PPTX",
+            ".jpg":  "JPEG",  ".jpeg": "JPEG",
+            ".png":  "PNG",   ".tiff": "TIFF",
+            ".bmp":  "BMP",
         }
 
         all_files = []
@@ -614,7 +616,7 @@ class ForensicApp(ctk.CTk):
             self.after(0, lambda f=fname, t=ftype: self._log(f"  📄 {f}  [{t}]"))
 
             try:
-                if ext == ".docx":
+                if ext in (".docx", ".docm"):
                     from main import analyze_file
                     result = analyze_file(filepath)
                     all_results.append(result["metadata"])

@@ -539,6 +539,8 @@ def analyze_folder(folder_path: str):
 
     SUPPORTED = {
         ".docx": "Word документ",
+        ".docm": "Word документ с макросами",
+        ".doc":  "Word документ (устаревший формат)",
         ".pdf":  "PDF документ",
         ".pptx": "PowerPoint презентация",
         ".jpg":  "Фотография JPEG",
@@ -573,7 +575,7 @@ def analyze_folder(folder_path: str):
     local_ole_map = {}
 
     for filepath, ext, ftype in all_files:
-        if ext == ".docx":
+        if ext in (".docx", ".docm"):
             result = analyze_file(filepath)
             lang = result.get("language", {})
             if lang.get("Основной язык") and lang["Основной язык"] != "Не определён":
