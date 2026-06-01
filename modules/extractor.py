@@ -47,14 +47,67 @@ def extract_app_properties(filepath: str) -> dict:
     return app_props
 
 
+def _extract_core_xml(filepath: str) -> dict:
+    NS = {
+        "cp":      "http://schemas.openxmlformats.org/package/2006/metadata/core-properties",
+        "dc":      "http://purl.org/dc/elements/1.1/",
+        "dcterms": "http://purl.org/dc/terms/",
+    }
+    result = {}
+    try:
+        with zipfile.ZipFile(filepath, "r") as z:
+            if "docProps/core.xml" not in z.namelist():
+                return result
+            content = z.read("docProps/core.xml").decode("utf-8", errors="ignore")
+            root    = ET.fromstring(content)
+
+            def g(tag, ns_key):
+                el = root.find(f"{{{NS[ns_key]}}}{tag}")
+                return el.text.strip() if el is not None and el.text else None
+
+            result["author"]           = g("creator",        "dc")
+            result["last_modified_by"] = g("lastModifiedBy", "cp")
+            result["created"]          = g("created",        "dcterms")
+            result["modified"]         = g("modified",       "dcterms")
+            result["revision"]         = g("revision",       "cp")
+            result["title"]            = g("title",          "dc")
+            result["subject"]          = g("subject",        "dc")
+            result["keywords"]         = g("keywords",       "cp")
+            result["category"]         = g("category",       "cp")
+            result["description"]      = g("description",    "dc")
+            result["language"]         = g("language",       "dc")
+            result["identifier"]       = g("identifier",     "dc")
+    except Exception:
+        pass
+    return result
+
+
 def extract_metadata(filepath: str) -> dict:
     log_action(f"Начало анализа файла: {filepath}")
 
-    doc    = Document(filepath)
-    props  = doc.core_properties
     hashes = compute_hashes(filepath)
     app    = extract_app_properties(filepath)
     size   = os.path.getsize(filepath)
+
+    try:
+        doc   = Document(filepath)
+        props = doc.core_properties
+        core  = {
+            "author":           props.author or "",
+            "last_modified_by": props.last_modified_by or "",
+            "created":          str(props.created)  if props.created  else None,
+            "modified":         str(props.modified) if props.modified else None,
+            "revision":         str(props.revision) if props.revision else None,
+            "title":            getattr(props, "title",       None),
+            "subject":          getattr(props, "subject",     None),
+            "keywords":         getattr(props, "keywords",    None),
+            "category":         getattr(props, "category",    None),
+            "description":      getattr(props, "description", None),
+            "language":         getattr(props, "language",    None),
+            "identifier":       getattr(props, "identifier",  None),
+        }
+    except Exception:
+        core = _extract_core_xml(filepath)
 
     metadata = {
 
@@ -62,29 +115,29 @@ def extract_metadata(filepath: str) -> dict:
         "Полный путь":       os.path.abspath(filepath),
         "Размер файла":      f"{size} байт ({round(size / 1024, 2)} КБ)",
 
-        "Автор":                  props.author           or "Не указан",
-        "Последний редактор":     props.last_modified_by or "Не указан",
+        "Автор":                  core.get("author")           or "Не указан",
+        "Последний редактор":     core.get("last_modified_by") or "Не указан",
         "Организация":            app.get("Организация", "Не указана"),
         "Менеджер":               app.get("Менеджер",    "Не указан"),
 
-        "Дата создания":          str(props.created)  if props.created  else "Нет данных",
-        "Дата изменения":         str(props.modified) if props.modified else "Нет данных",
+        "Дата создания":          core.get("created")  or "Нет данных",
+        "Дата изменения":         core.get("modified") or "Нет данных",
         "Время редактирования":   app.get("Время редактирования (мин)", "Нет данных") + " мин"
                                   if app.get("Время редактирования (мин)") else "Нет данных",
-        "Номер редакции":         str(props.revision) if props.revision else "Нет данных",
+        "Номер редакции":         core.get("revision") or "Нет данных",
 
         "Приложение":             app.get("Приложение",         "Не определено"),
         "Версия приложения":      app.get("Версия приложения",  "Не определена"),
         "Шаблон документа":       app.get("Шаблон документа",   "Не указан"),
 
-        "Название":               getattr(props, 'title',       None) or "Не указано",
-        "Тема":                   getattr(props, 'subject',     None) or "Не указана",
-        "Категория":              getattr(props, 'category',    None) or "Не указана",
-        "Ключевые слова":         getattr(props, 'keywords',    None) or "Не указаны",
-        "Комментарий":            getattr(props, 'comments',    None) or "Нет",
-        "Описание":               getattr(props, 'description', None) or "Нет",
-        "Язык":                   getattr(props, 'language',    None) or "Не указан",
-        "Идентификатор":          getattr(props, 'identifier',  None) or "Нет",
+        "Название":               core.get("title")       or "Не указано",
+        "Тема":                   core.get("subject")     or "Не указана",
+        "Категория":              core.get("category")    or "Не указана",
+        "Ключевые слова":         core.get("keywords")    or "Не указаны",
+        "Комментарий":            core.get("description") or "Нет",
+        "Описание":               core.get("description") or "Нет",
+        "Язык":                   core.get("language")    or "Не указан",
+        "Идентификатор":          core.get("identifier")  or "Нет",
 
         "Страниц":                app.get("Страниц",    "—"),
         "Слов":                   app.get("Слов",       "—"),
