@@ -158,24 +158,23 @@ def scan_cloud_file(service, file_id, mime_type, filename):
                 dde = ole.get("DDE", {})
                 enc = ole.get("Шифрование", {})
 
-                if vba.get("Макросов найдено", 0):
-                    risk  = vba.get("Оценка риска", "—")
-                    score = vba.get("Счёт риска", 0)
-                    print(f"  ☣️  VBA: {vba['Макросов найдено']} модуль(ей) | риск: {risk} (score={score})")
+                if vba.get("Макросы обнаружены", False):
+                    modules_cnt = vba.get("Модулей", 0)
+                    risk        = vba.get("Риск", "—")
+                    print(f"  ☣️  VBA: {modules_cnt} модуль(ей) | {risk}")
                     result["Все аномалии"].append(
-                        f"[VBA] Обнаружены макросы: {vba['Макросов найдено']} модуль(ей), риск {risk}"
+                        f"[VBA] Обнаружены макросы: {modules_cnt} модуль(ей) | {risk}"
                     )
-                    for kw in vba.get("Подозрительные ключевые слова", []):
+                    for kw in vba.get("Ключевые слова", []):
                         result["Все следы"].append(f"[VBA] {kw}")
                 else:
                     print(f"  ☣️  VBA макросы: не найдены")
 
-                dde_fields = dde.get("Поля DDE", [])
-                if dde_fields:
+                dde_fields = dde.get("Поля", [])
+                if dde.get("DDE обнаружен", False):
                     print(f"  ⚡ DDE-полей: {len(dde_fields)}")
                     for field in dde_fields:
-                        cmd = field.get("Команда", field.get("Поле", ""))
-                        result["Все аномалии"].append(f"[DDE] {cmd}")
+                        result["Все аномалии"].append(f"[DDE] {field}")
                 else:
                     print(f"  ⚡ DDE-поля: не обнаружены")
 

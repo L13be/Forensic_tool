@@ -815,6 +815,16 @@ def _build_doc_card(g: dict, index: int) -> str:
             </div>
         </div>"""
 
+    # ── VBA / DDE / OLE (облачный файл) ─────────────────────────────────────
+    ole_cloud_inline = ""
+    ole_cloud_code   = ""
+    if scan:
+        ole_data = scan.get("OLE", {})
+        if ole_data:
+            ole_cloud_inline, ole_cloud_code = _build_ole_section(
+                ole_data, f"cloud-{index}"
+            )
+
     hidden_gdrive_section = ""
     scan_hidden = scan.get("Скрытый текст", {}) if scan else {}
     if scan_hidden and scan_hidden.get("Скрытых фрагментов", 0) > 0:
@@ -1006,9 +1016,11 @@ def _build_doc_card(g: dict, index: int) -> str:
             {doc_section}
             {osint_section}
             {security_section}
+            {ole_cloud_inline}
             {hidden_gdrive_section}
             {images_summary}
         </div>
+        {ole_cloud_code}
         {images_detail}
         {anomaly_section}
     </div>"""
