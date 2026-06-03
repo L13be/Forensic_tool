@@ -211,45 +211,82 @@ def scan_yandex_file(client, public_url: str, mime_type: str, filename: str) -> 
     if "wordprocessingml" in mime_type or mime_type == "application/msword":
         images = scan_docx_images(file_bytes)
 
-        try:
-            import tempfile
-            from modules.hidden_text import extract_hidden_text
-            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
-                tmp.write(file_bytes)
-                tmp_path = tmp.name
-            try:
-                hidden = extract_hidden_text(tmp_path)
-            finally:
-                os.unlink(tmp_path)
-            result["Скрытый текст"] = hidden
-            if hidden.get("Скрытых фрагментов", 0) > 0:
-                print(f"  👁️  Скрытых фрагментов: {hidden['Скрытых фрагментов']}")
-                for frag in hidden["Скрытый текст"]:
-                    print(f"     📌 Параграф №{frag['Параграф №']}: {frag['Скрытый текст'][:100]}")
-                for anom in hidden["Аномалии"]:
-                    result["Все аномалии"].append(f"[Скрытый текст] {anom}")
-            else:
-                print("  👁️  Скрытый текст: не обнаружен")
-        except Exception as e:
-            log_action(f"Ошибка анализа скрытого текста: {e}")
+        import tempfile
+        from modules.hidden_text import extract_hidden_text
+        from modules.ole_analyzer  import full_ole_analysis
+        from modules.virus_scanner import scan_file
+
+        suffix = ".doc" if mime_type == "application/msword" else ".docx"
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
 
         try:
-            import tempfile
-            from modules.virus_scanner import scan_file
-            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
-                tmp.write(file_bytes)
-                tmp_path = tmp.name
+            # ── Скрытый текст ───────────────────────────────────────
+            try:
+                hidden = extract_hidden_text(tmp_path)
+                result["Скрытый текст"] = hidden
+                if hidden.get("Скрытых фрагментов", 0) > 0:
+                    print(f"  👁️  Скрытых фрагментов: {hidden['Скрытых фрагментов']}")
+                    for frag in hidden["Скрытый текст"]:
+                        print(f"     📌 Параграф №{frag['Параграф №']}: {frag['Скрытый текст'][:100]}")
+                    for anom in hidden["Аномалии"]:
+                        result["Все аномалии"].append(f"[Скрытый текст] {anom}")
+                else:
+                    print("  👁️  Скрытый текст: не обнаружен")
+            except Exception as e:
+                log_action(f"Ошибка анализа скрытого текста: {e}")
+
+            # ── VBA / DDE / OLE ─────────────────────────────────────
+            try:
+                ole = full_ole_analysis(tmp_path)
+                result["OLE"] = ole
+
+                vba = ole.get("VBA", {})
+                dde = ole.get("DDE", {})
+                enc = ole.get("Шифрование", {})
+
+                if vba.get("Макросов найдено", 0):
+                    risk  = vba.get("Оценка риска", "—")
+                    score = vba.get("Счёт риска", 0)
+                    print(f"  ☣️  VBA: {vba['Макросов найдено']} модуль(ей) | риск: {risk} (score={score})")
+                    result["Все аномалии"].append(
+                        f"[VBA] Обнаружены макросы: {vba['Макросов найдено']} модуль(ей), риск {risk}"
+                    )
+                    for kw in vba.get("Подозрительные ключевые слова", []):
+                        result["Все следы"].append(f"[VBA] {kw}")
+                else:
+                    print("  ☣️  VBA макросы: не найдены")
+
+                dde_fields = dde.get("Поля DDE", [])
+                if dde_fields:
+                    print(f"  ⚡ DDE-полей: {len(dde_fields)}")
+                    for field in dde_fields:
+                        cmd = field.get("Команда", field.get("Поле", ""))
+                        result["Все аномалии"].append(f"[DDE] {cmd}")
+                else:
+                    print("  ⚡ DDE-поля: не обнаружены")
+
+                if enc.get("Зашифрован"):
+                    print("  🔒 Файл зашифрован")
+                    result["Все аномалии"].append("[OLE] Файл зашифрован паролем")
+
+            except Exception as e:
+                log_action(f"Ошибка OLE-анализа облачного файла: {e}")
+
+            # ── Вирусное сканирование ────────────────────────────────
             try:
                 scan = scan_file(tmp_path)
-            finally:
-                os.unlink(tmp_path)
-            result["Вирусное сканирование"] = scan
-            if scan.get("Находки"):
-                for f in scan["Находки"]:
-                    result["Все аномалии"].append(f"[Вирус] {f}")
-            print(f"  🛡️  Риск: {scan['Риск']}")
-        except Exception as e:
-            log_action(f"Ошибка вирусного сканирования: {e}")
+                result["Вирусное сканирование"] = scan
+                if scan.get("Находки"):
+                    for f in scan["Находки"]:
+                        result["Все аномалии"].append(f"[Вирус] {f}")
+                print(f"  🛡️  Риск: {scan['Риск']}")
+            except Exception as e:
+                log_action(f"Ошибка вирусного сканирования: {e}")
+
+        finally:
+            os.unlink(tmp_path)
 
     elif mime_type == "application/pdf":
         images = scan_pdf_images(file_bytes)
